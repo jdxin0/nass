@@ -147,12 +147,17 @@ func renderSSOConfig(ic *apps.InstallContext) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// waitForJellyfin polls /System/Info/Public until it returns a 200 with a
-// JSON body. During the first ~5s of boot Jellyfin replies 503 with a plain
-// "Jellyfin Server is loading. Please try again shortly." page, which is not
-// JSON — apps.WaitFor would treat that as ready and the next decode would
-// blow up on 'J'. Returns the wizard's completion state once a real response
-// arrives.
+// waitForJellyfin polls /System/Info/Public until Jellyfin is actually ready
+// to serve API requests, returning the wizard's completion state.
+//
+// Two boot phases need to be distinguished:
+//   - 10.8: a plain HTML "Jellyfin Server is loading" 503 for ~5s, after which
+//     all endpoints come up together.
+//   - 10.11+: /System/Info/Public answers JSON early, but /Startup/* still
+//     returns a 503 migration-progress HTML page until migrations finish.
+//
+// We therefore require BOTH a JSON /System/Info/Public AND, when the wizard
+// isn't yet complete, a JSON /Startup/User before returning.
 func waitForJellyfin(ctx context.Context, base string) (bool, error) {
 	client := &http.Client{Timeout: 2 * time.Second}
 	for {
@@ -162,7 +167,7 @@ func waitForJellyfin(ctx context.Context, base string) (bool, error) {
 		default:
 		}
 		completed, ok := pollPublicInfo(ctx, client, base)
-		if ok {
+		if ok && (completed || startupReady(ctx, client, base)) {
 			return completed, nil
 		}
 		select {
@@ -171,6 +176,24 @@ func waitForJellyfin(ctx context.Context, base string) (bool, error) {
 		case <-time.After(2 * time.Second):
 		}
 	}
+}
+
+// startupReady returns true once /Startup/User serves JSON. During the 10.11
+// migration phase it returns 503 with an HTML progress page.
+func startupReady(ctx context.Context, client *http.Client, base string) bool {
+	req, err := http.NewRequestWithContext(ctx, "GET", base+"/Startup/User", nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+	return resp.StatusCode == 200 &&
+		strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json")
 }
 
 func pollPublicInfo(ctx context.Context, client *http.Client, base string) (bool, bool) {
