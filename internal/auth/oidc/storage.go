@@ -293,6 +293,14 @@ func (s *Storage) fillUserinfo(ctx context.Context, info *oidc.UserInfo, subject
 	if info.Subject == "" {
 		info.Subject = subject
 	}
+	// groups carries role-style claims that downstream apps map to local
+	// permissions (e.g. jellyfin-plugin-sso AdminRoles). Always emitted so
+	// apps can rely on its presence regardless of which scopes were asked.
+	groups := []string{}
+	if u.IsAdmin {
+		groups = append(groups, "admin")
+	}
+	info.AppendClaims("groups", groups)
 	return nil
 }
 

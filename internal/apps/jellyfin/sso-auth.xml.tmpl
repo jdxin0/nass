@@ -12,11 +12,14 @@
           <OidClientId>{{.OIDCClientID}}</OidClientId>
           <OidSecret>{{.OIDCClientSecret}}</OidSecret>
           <Enabled>true</Enabled>
-          <EnableAuthorization>true</EnableAuthorization>
+          <EnableAuthorization>false</EnableAuthorization>
           <EnableAllFolders>true</EnableAllFolders>
           <EnabledFolders />
-          <AdminRoles />
+          <AdminRoles>
+            <string>admin</string>
+          </AdminRoles>
           <Roles />
+          <RoleClaim>groups</RoleClaim>
           <EnableFolderRoles>false</EnableFolderRoles>
           <EnableLiveTvRoles>false</EnableLiveTvRoles>
           <EnableLiveTv>false</EnableLiveTv>
