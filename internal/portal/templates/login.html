@@ -1,0 +1,12 @@
+{{define "content"}}
+<form class="login" method="POST" action="/portal/login">
+  <h1>Sign in to {{.SiteTitle}}</h1>
+  <input type="hidden" name="next" value="{{.Next}}">
+  <label for="username">Username</label>
+  <input id="username" name="username" autocomplete="username" required autofocus>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+  <button type="submit" style="margin-top:1rem;width:100%">Continue</button>
+</form>
+{{end}}

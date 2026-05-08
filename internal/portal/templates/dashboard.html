@@ -1,0 +1,16 @@
+{{define "content"}}
+<h1 style="margin-top:0">Apps</h1>
+{{if not .Apps}}
+  <p style="color:var(--muted)">No apps yet. {{if .User.IsAdmin}}<a href="/portal/admin">Add one</a>.{{end}}</p>
+{{end}}
+<div class="grid">
+  {{range .Apps}}
+    <a class="card" href="{{.URL}}" target="_blank" rel="noopener">
+      <div class="icon">{{if .Icon}}{{.Icon}}{{else}}📦{{end}}</div>
+      <div class="title">{{.DisplayName}}</div>
+      <div class="desc">{{.Description}}</div>
+      <div style="margin-top:.5rem"><span class="badge {{.State}}">{{.State}}</span></div>
+    </a>
+  {{end}}
+</div>
+{{end}}

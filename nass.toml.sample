@@ -1,0 +1,28 @@
+# nass.toml — copy to nass.toml and edit, or run `nass init`.
+# Relative paths are resolved against the directory containing this file.
+
+[server]
+https_addr = ":443"
+http_addr  = ":80"
+base_host  = "example.com"
+
+[tls]
+cert_file = "/etc/letsencrypt/live/example.com/fullchain.pem"
+key_file  = "/etc/letsencrypt/live/example.com/privkey.pem"
+
+[db]
+path = "nass.db"
+
+[oidc]
+# issuer defaults to https://<subdomain>.<base_host>
+subdomain = "auth"
+key_file  = "oidc.key"
+
+[portal]
+title     = "nass"
+subdomain = ""   # empty = root of base_host
+
+[orchestrator]
+data_root      = "/srv/nass/data"
+compose_root   = "/srv/nass/apps"
+docker_compose = "docker compose"

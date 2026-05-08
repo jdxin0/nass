@@ -1,0 +1,59 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{.Title}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1f2328; --muted:#656d76; --border:#d0d7de; --primary:#2d6cdf; --primary-hover:#225ac9; --danger:#c0392b; --success:#1f883d; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+  header { background: var(--card); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+  header a { color: var(--text); text-decoration: none; font-weight: 600; }
+  header nav a { margin-left: 1rem; font-weight: 400; color: var(--muted); }
+  main { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; text-decoration: none; color: inherit; transition: transform .1s, box-shadow .1s; display: block; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .card .icon { font-size: 2rem; }
+  .card .title { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+  .card .desc { font-size: .85rem; color: var(--muted); }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; }
+  .badge.running { background: #dafbe1; color: var(--success); }
+  .badge.stopped { background: #ffebe9; color: var(--danger); }
+  .badge.unknown { background: #f1f1f1; color: var(--muted); }
+  form.login { background: var(--card); padding: 2rem; border-radius: 8px; border: 1px solid var(--border); width: 320px; margin: 4rem auto; }
+  form.login h1 { margin: 0 0 1rem; font-size: 1.25rem; }
+  label { display: block; margin: .75rem 0 .25rem; font-size: .85rem; color: var(--muted); }
+  input[type=text], input[type=password], input[type=email], input[type=url], input[type=number] { width: 100%; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.95rem; }
+  button, .btn { background: var(--primary); color: #fff; border: 0; padding: .5rem 1rem; border-radius: 4px; cursor: pointer; font-size: .9rem; text-decoration: none; display: inline-block; }
+  button:hover, .btn:hover { background: var(--primary-hover); }
+  button.danger { background: var(--danger); }
+  button.secondary { background: #f1f1f1; color: var(--text); border: 1px solid var(--border); }
+  .err { background: #ffebe9; color: var(--danger); padding: 0.5rem 0.75rem; border-radius: 4px; margin: 0.5rem 0; font-size: .9rem; }
+  .ok  { background: #dafbe1; color: var(--success); padding: 0.5rem 0.75rem; border-radius: 4px; margin: 0.5rem 0; font-size: .9rem; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  th { background: #f6f8fa; font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .actions form { display: inline-block; margin-right: .25rem; }
+</style>
+</head>
+<body>
+{{if .User}}
+<header>
+  <a href="/">{{.SiteTitle}}</a>
+  <nav>
+    {{if .User.IsAdmin}}<a href="/portal/admin">admin</a>{{end}}
+    <span style="color:var(--muted);font-size:.85rem">{{.User.Username}}</span>
+    <form method="POST" action="/portal/logout" style="display:inline">
+      <button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">sign out</button>
+    </form>
+  </nav>
+</header>
+{{end}}
+<main>
+{{template "content" .}}
+</main>
+</body>
+</html>{{end}}

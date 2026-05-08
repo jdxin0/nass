@@ -1,0 +1,56 @@
+services:
+  immich-server:
+    container_name: {{.Name}}_server
+    image: ghcr.io/immich-app/immich-server:v1.125.7
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - database
+    environment:
+      IMMICH_CONFIG_FILE: /immich-config.json
+      DB_HOSTNAME: {{.Name}}_postgres
+      DB_USERNAME: postgres
+      DB_DATABASE_NAME: immich
+      DB_PASSWORD: postgres
+      REDIS_HOSTNAME: {{.Name}}_redis
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:2283"
+    volumes:
+      - {{.DataRoot}}/upload:/usr/src/app/upload
+      # Mounted relative to this compose file. PreUp writes the rendered
+      # config to <compose-dir>/immich-config.json.
+      - ./immich-config.json:/immich-config.json
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      # Let immich reach the OIDC issuer running on the docker host.
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"
+
+  immich-machine-learning:
+    container_name: {{.Name}}_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:v1.125.7
+    restart: unless-stopped
+    environment:
+      DB_HOSTNAME: {{.Name}}_postgres
+      DB_USERNAME: postgres
+      DB_DATABASE_NAME: immich
+      DB_PASSWORD: postgres
+      REDIS_HOSTNAME: {{.Name}}_redis
+    volumes:
+      - {{.DataRoot}}/ml-cache:/cache
+
+  redis:
+    container_name: {{.Name}}_redis
+    image: docker.io/redis:6.2-alpine@sha256:905c4ee67b8e0aa955331960d2aa745781e6bd89afc44a8584bfd13bc890f0ae
+    restart: unless-stopped
+
+  database:
+    container_name: {{.Name}}_postgres
+    image: tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
+    volumes:
+      - {{.DataRoot}}/postgres:/var/lib/postgresql/data

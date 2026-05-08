@@ -1,0 +1,47 @@
+{{define "content"}}
+<h1 style="margin-top:0">Admin</h1>
+
+{{if .Flash}}<div class="ok">{{.Flash}}</div>{{end}}
+{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+
+<h2 style="margin-top:1.5rem">Apps</h2>
+{{if not .Apps}}
+  <p style="color:var(--muted)">No apps registered.</p>
+{{else}}
+<table>
+<thead><tr><th>Name</th><th>Subdomain</th><th>Backend</th><th>Gate</th><th>State</th><th>Actions</th></tr></thead>
+<tbody>
+{{range .Apps}}
+<tr>
+  <td><strong>{{.DisplayName}}</strong><div style="color:var(--muted);font-size:.8rem">{{.Name}}</div></td>
+  <td>{{.Settings.Subdomain}}</td>
+  <td>{{.Settings.Backend}}</td>
+  <td>{{if .Settings.OIDCGate}}🔒 portal{{else}}—{{end}}</td>
+  <td><span class="badge {{.State}}">{{.State}}</span></td>
+  <td class="actions">
+    {{if .Settings.ComposeFile}}
+      <form method="POST" action="/portal/admin/apps/{{.Name}}/start"><button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">start</button></form>
+      <form method="POST" action="/portal/admin/apps/{{.Name}}/stop"><button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">stop</button></form>
+    {{end}}
+    <form method="POST" action="/portal/admin/apps/{{.Name}}/disable"><button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">disable</button></form>
+  </td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{end}}
+
+<h2 style="margin-top:2rem">Add app</h2>
+<form method="POST" action="/portal/admin/apps" style="background:var(--card);padding:1.25rem;border:1px solid var(--border);border-radius:8px;max-width:520px">
+  <label>Name (e.g. nextcloud)<input type="text" name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+  <label>Display name<input type="text" name="display_name" required></label>
+  <label>Description<input type="text" name="description"></label>
+  <label>Icon (emoji)<input type="text" name="icon" maxlength="4" placeholder="📦"></label>
+  <label>Subdomain<input type="text" name="subdomain" required></label>
+  <label>Backend URL<input type="url" name="backend" required placeholder="http://127.0.0.1:18080"></label>
+  <label>Compose file (relative to compose_root or absolute)<input type="text" name="compose_file" placeholder="nextcloud/docker-compose.yml"></label>
+  <label><input type="checkbox" name="preserve_host" value="1" checked> preserve Host header</label>
+  <label><input type="checkbox" name="oidc_gate" value="1"> require portal session (gate)</label>
+  <button type="submit" style="margin-top:1rem">Add app</button>
+</form>
+{{end}}

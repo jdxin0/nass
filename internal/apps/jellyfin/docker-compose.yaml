@@ -1,0 +1,16 @@
+services:
+  jellyfin:
+    container_name: {{.Name}}
+    image: jellyfin/jellyfin:10.8.13
+    restart: unless-stopped
+    environment:
+      JELLYFIN_PublishedServerUrl: {{.PublicURL}}
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:8096"
+    volumes:
+      - {{.DataRoot}}/config:/config
+      - {{.DataRoot}}/cache:/cache
+    extra_hosts:
+      # Let jellyfin reach the OIDC issuer running on the host.
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"

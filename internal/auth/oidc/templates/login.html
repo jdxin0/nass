@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; display: flex; min-height: 100vh; align-items: center; justify-content: center; margin: 0; }
+  form { background: #fff; padding: 2rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.1); width: 320px; }
+  h1 { margin: 0 0 1rem; font-size: 1.25rem; }
+  label { display: block; margin: .75rem 0 .25rem; font-size: .85rem; }
+  input { width: 100%; padding: .5rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+  button { margin-top: 1rem; width: 100%; padding: .6rem; background: #2d6cdf; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  .err { color: #c0392b; font-size: .85rem; margin-top: .5rem; }
+</style>
+</head>
+<body>
+<form method="POST" action="/login">
+  <h1>Sign in</h1>
+  <input type="hidden" name="id" value="{{.AuthRequestID}}">
+  <label for="username">Username</label>
+  <input id="username" name="username" autocomplete="username" required autofocus>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+  <button type="submit">Continue</button>
+</form>
+</body>
+</html>

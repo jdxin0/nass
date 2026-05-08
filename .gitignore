@@ -1,0 +1,7 @@
+/nass
+/dist/
+*.db
+*.db-shm
+*.db-wal
+nass.toml
+oidc.key
