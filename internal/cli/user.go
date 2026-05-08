@@ -18,7 +18,7 @@ func userCmd() *cobra.Command {
 		Use:   "user",
 		Short: "Manage users",
 	}
-	cmd.AddCommand(userAddCmd(), userListCmd(), userRmCmd(), userPasswdCmd())
+	cmd.AddCommand(userAddCmd(), userListCmd(), userRmCmd(), userPasswdCmd(), userSetEmailCmd())
 	return cmd
 }
 
@@ -121,6 +121,27 @@ func userPasswdCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&password, "password", "", "new password (omit to read from stdin)")
 	return cmd
+}
+
+func userSetEmailCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "set-email <username> <email>",
+		Short: "Set or update a user's email address (pass empty string to clear)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return withStore(func(c context.Context, s *auth.Store) error {
+				u, err := s.GetByUsername(c, args[0])
+				if err != nil {
+					return err
+				}
+				if err := s.SetEmail(c, u.ID, args[1]); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "updated email for %q → %s\n", u.Username, args[1])
+				return nil
+			})
+		},
+	}
 }
 
 func resolvePassword(flag, prompt string) (string, error) {

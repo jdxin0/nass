@@ -85,6 +85,22 @@ func (s *Store) Verify(ctx context.Context, username, password string) (*User, e
 	return s.GetByUsername(ctx, username)
 }
 
+// SetEmail updates the email column for the given user. An empty string
+// clears the column (stored as NULL).
+func (s *Store) SetEmail(ctx context.Context, id int64, email string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		nullStr(strings.TrimSpace(email)), id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 func (s *Store) SetPassword(ctx context.Context, id int64, password string) error {
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")

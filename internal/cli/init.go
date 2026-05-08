@@ -20,6 +20,7 @@ func initCmd() *cobra.Command {
 	var (
 		baseHost      string
 		adminUser     string
+		adminEmail    string
 		adminPassword string
 		certFile      string
 		keyFile       string
@@ -66,7 +67,7 @@ func initCmd() *cobra.Command {
 			defer d.Close()
 
 			store := auth.NewStore(d)
-			u, err := store.Create(context.Background(), adminUser, "", adminPassword, true)
+			u, err := store.Create(context.Background(), adminUser, adminEmail, adminPassword, true)
 			if err != nil {
 				return fmt.Errorf("create admin: %w", err)
 			}
@@ -81,6 +82,7 @@ func initCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&baseHost, "base-host", "", "base host (required)")
 	cmd.Flags().StringVar(&adminUser, "admin-user", "admin", "admin username")
+	cmd.Flags().StringVar(&adminEmail, "admin-email", "", "admin email (required by some apps' OIDC clients, e.g. immich)")
 	cmd.Flags().StringVar(&adminPassword, "admin-password", "", "admin password (required)")
 	cmd.Flags().StringVar(&certFile, "cert-file", "", "path to TLS fullchain.pem")
 	cmd.Flags().StringVar(&keyFile, "key-file", "", "path to TLS privkey.pem")
