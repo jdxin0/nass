@@ -63,12 +63,15 @@ func postUp(ctx context.Context, ic *apps.InstallContext) error {
 
 	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	if err := apps.WaitFor(waitCtx, base+"/System/Info/Public", 2*time.Second); err != nil {
+	completed, err := waitForJellyfin(waitCtx, base)
+	if err != nil {
 		return fmt.Errorf("wait for jellyfin: %w", err)
 	}
 
-	if err := runStartupWizard(ctx, base, ic.AdminPassword); err != nil {
-		return fmt.Errorf("startup wizard: %w", err)
+	if !completed {
+		if err := runStartupWizard(ctx, base, ic.AdminPassword); err != nil {
+			return fmt.Errorf("startup wizard: %w", err)
+		}
 	}
 
 	pluginDir := filepath.Join(ic.DataRoot, "config", "plugins", "SSO_Authentication")
@@ -90,7 +93,10 @@ func postUp(ctx context.Context, ic *apps.InstallContext) error {
 	}
 	upCtx, cancel2 := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel2()
-	return apps.WaitFor(upCtx, base+"/System/Info/Public", 2*time.Second)
+	if _, err := waitForJellyfin(upCtx, base); err != nil {
+		return fmt.Errorf("wait for jellyfin restart: %w", err)
+	}
+	return nil
 }
 
 func writeBrandingAndSSOConfig(ic *apps.InstallContext) error {
@@ -141,17 +147,59 @@ func renderSSOConfig(ic *apps.InstallContext) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// runStartupWizard skips if the wizard is already complete; otherwise drives
-// the four-step first-run setup the way the web installer does.
-func runStartupWizard(ctx context.Context, base, adminPassword string) error {
-	completed, err := startupCompleted(ctx, base)
-	if err != nil {
-		return fmt.Errorf("check startup state: %w", err)
+// waitForJellyfin polls /System/Info/Public until it returns a 200 with a
+// JSON body. During the first ~5s of boot Jellyfin replies 503 with a plain
+// "Jellyfin Server is loading. Please try again shortly." page, which is not
+// JSON — apps.WaitFor would treat that as ready and the next decode would
+// blow up on 'J'. Returns the wizard's completion state once a real response
+// arrives.
+func waitForJellyfin(ctx context.Context, base string) (bool, error) {
+	client := &http.Client{Timeout: 2 * time.Second}
+	for {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		default:
+		}
+		completed, ok := pollPublicInfo(ctx, client, base)
+		if ok {
+			return completed, nil
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
 	}
-	if completed {
-		return nil
-	}
+}
 
+func pollPublicInfo(ctx context.Context, client *http.Client, base string) (bool, bool) {
+	req, err := http.NewRequestWithContext(ctx, "GET", base+"/System/Info/Public", nil)
+	if err != nil {
+		return false, false
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 || !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		return false, false
+	}
+	var info struct {
+		StartupWizardCompleted bool
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return false, false
+	}
+	return info.StartupWizardCompleted, true
+}
+
+// runStartupWizard drives the four-step first-run setup the way the web
+// installer does. The caller is responsible for skipping it when the wizard
+// is already complete.
+func runStartupWizard(ctx context.Context, base, adminPassword string) error {
 	// Jellyfin's first-run wizard insists on these calls in order. Empty
 	// /Startup/User read appears to be a precondition for the POST below.
 	if err := getJSON(ctx, base+"/Startup/User"); err != nil {
@@ -176,25 +224,6 @@ func runStartupWizard(ctx context.Context, base, adminPassword string) error {
 		return fmt.Errorf("POST /Startup/Complete: %w", err)
 	}
 	return nil
-}
-
-func startupCompleted(ctx context.Context, base string) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", base+"/System/Info/Public", nil)
-	if err != nil {
-		return false, err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-	var info struct {
-		StartupWizardCompleted bool
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return false, err
-	}
-	return info.StartupWizardCompleted, nil
 }
 
 func getJSON(ctx context.Context, url string) error {

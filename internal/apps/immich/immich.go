@@ -93,7 +93,7 @@ func postUp(ctx context.Context, ic *apps.InstallContext) error {
 	return nil
 }
 
-// waitForReady polls /api/server-info/config until the response includes the
+// waitForReady polls /api/server/config until the response includes the
 // "isInitialized" field — its presence (regardless of true/false) is the
 // signal that immich's server + DB are wired up.
 func waitForReady(ctx context.Context, base string) error {
@@ -104,7 +104,7 @@ func waitForReady(ctx context.Context, base string) error {
 			return ctx.Err()
 		default:
 		}
-		resp, err := client.Get(base + "/api/server-info/config")
+		resp, err := client.Get(base + "/api/server/config")
 		if err == nil {
 			b, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -121,7 +121,7 @@ func waitForReady(ctx context.Context, base string) error {
 }
 
 func isInitialized(ctx context.Context, base string) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", base+"/api/server-info/config", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", base+"/api/server/config", nil)
 	if err != nil {
 		return false, err
 	}
