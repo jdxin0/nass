@@ -30,6 +30,9 @@ var composeTemplate []byte
 //go:embed branding.xml
 var brandingXML []byte
 
+//go:embed network.xml
+var networkXML []byte
+
 //go:embed sso-auth.xml.tmpl
 var ssoAuthTmpl string
 
@@ -120,6 +123,15 @@ func writeBrandingAndSSOConfig(ic *apps.InstallContext) error {
 	}
 	if err := os.WriteFile(filepath.Join(brandingDir, "branding.xml"), brandingXML, 0o644); err != nil {
 		return fmt.Errorf("write branding.xml: %w", err)
+	}
+
+	// network.xml registers the docker bridge subnets as KnownProxies so
+	// Jellyfin honors X-Forwarded-Proto from nass's reverse proxy. Without
+	// this, the SSO plugin builds redirect URIs / post-login navigation as
+	// http:// and modern browsers mixed-content-block them.
+	configRootDir := filepath.Join(ic.DataRoot, "config")
+	if err := os.WriteFile(filepath.Join(configRootDir, "network.xml"), networkXML, 0o644); err != nil {
+		return fmt.Errorf("write network.xml: %w", err)
 	}
 
 	configsDir := filepath.Join(ic.DataRoot, "config", "plugins", "configurations")
