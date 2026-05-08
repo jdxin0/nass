@@ -141,8 +141,7 @@ func writeBrandingAndSSOConfig(ic *apps.InstallContext) error {
 	if err != nil {
 		return fmt.Errorf("render network.xml: %w", err)
 	}
-	configRootDir := filepath.Join(ic.DataRoot, "config")
-	if err := os.WriteFile(filepath.Join(configRootDir, "network.xml"), netxml, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(brandingDir, "network.xml"), netxml, 0o644); err != nil {
 		return fmt.Errorf("write network.xml: %w", err)
 	}
 
