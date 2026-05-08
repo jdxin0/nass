@@ -14,8 +14,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -30,8 +32,8 @@ var composeTemplate []byte
 //go:embed branding.xml
 var brandingXML []byte
 
-//go:embed network.xml
-var networkXML []byte
+//go:embed network.xml.tmpl
+var networkXMLTmpl string
 
 //go:embed sso-auth.xml.tmpl
 var ssoAuthTmpl string
@@ -125,12 +127,22 @@ func writeBrandingAndSSOConfig(ic *apps.InstallContext) error {
 		return fmt.Errorf("write branding.xml: %w", err)
 	}
 
-	// network.xml registers the docker bridge subnets as KnownProxies so
-	// Jellyfin honors X-Forwarded-Proto from nass's reverse proxy. Without
-	// this, the SSO plugin builds redirect URIs / post-login navigation as
-	// http:// and modern browsers mixed-content-block them.
+	// network.xml registers the container's docker bridge gateway as a
+	// KnownProxy so Jellyfin honors X-Forwarded-Proto from nass's reverse
+	// proxy. Without this, the SSO plugin builds redirect URIs / post-login
+	// navigation as http:// and modern browsers mixed-content-block them.
+	// (Jellyfin's KnownProxies parser uses IPAddress.TryParse, so CIDR
+	// ranges are silently ignored — we have to discover the actual gateway.)
+	gateways, err := discoverProxyIPs(ic.Name)
+	if err != nil {
+		return fmt.Errorf("discover docker gateway: %w", err)
+	}
+	netxml, err := renderNetworkXML(gateways)
+	if err != nil {
+		return fmt.Errorf("render network.xml: %w", err)
+	}
 	configRootDir := filepath.Join(ic.DataRoot, "config")
-	if err := os.WriteFile(filepath.Join(configRootDir, "network.xml"), networkXML, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(configRootDir, "network.xml"), netxml, 0o644); err != nil {
 		return fmt.Errorf("write network.xml: %w", err)
 	}
 
@@ -146,6 +158,41 @@ func writeBrandingAndSSOConfig(ic *apps.InstallContext) error {
 		return fmt.Errorf("write SSO-Auth.xml: %w", err)
 	}
 	return nil
+}
+
+// discoverProxyIPs lists every gateway IP the jellyfin container has across
+// its docker networks. nass's traffic to 127.0.0.1:<published-port> arrives
+// at the container with one of these IPs as its source, so they are exactly
+// the addresses Jellyfin needs in KnownProxies to trust X-Forwarded-Proto.
+func discoverProxyIPs(container string) ([]string, error) {
+	out, err := exec.Command("docker", "inspect", "--format",
+		"{{range $name, $cfg := .NetworkSettings.Networks}}{{$cfg.Gateway}} {{end}}",
+		container).Output()
+	if err != nil {
+		return nil, fmt.Errorf("docker inspect %s: %w", container, err)
+	}
+	var ips []string
+	for _, f := range strings.Fields(string(out)) {
+		if net.ParseIP(f) != nil {
+			ips = append(ips, f)
+		}
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("docker inspect %s: no gateway IPs found", container)
+	}
+	return ips, nil
+}
+
+func renderNetworkXML(gateways []string) ([]byte, error) {
+	tmpl, err := template.New("network").Parse(networkXMLTmpl)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, struct{ Gateways []string }{gateways}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // renderSSOConfig fills the SSO-Auth.xml template with the OIDC issuer + client
