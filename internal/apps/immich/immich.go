@@ -177,7 +177,7 @@ func renderConfig(ic *apps.InstallContext) ([]byte, error) {
 			MobileRedirectURI:       "",
 			ProfileSigningAlgorithm: "none",
 			Scope:                   "openid email profile",
-			SigningAlgorithm:        "RS256",
+			SigningAlgorithm:        "ES256",
 			StorageLabelClaim:       "preferred_username",
 			StorageQuotaClaim:       "immich_quota",
 		},
