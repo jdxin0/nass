@@ -37,6 +37,11 @@ type AppSettings struct {
 	// ComposeFile is the path to the docker-compose.yml managed by the
 	// orchestrator (relative to orchestrator.compose_root if not absolute).
 	ComposeFile string `json:"compose_file,omitempty"`
+
+	// DataRoot is the on-disk directory holding the app's persistent data.
+	// Recorded so `nass app uninstall` can find and remove it even when the
+	// install used a non-default path.
+	DataRoot string `json:"data_root,omitempty"`
 }
 
 // AppRoute is a fully-resolved route ready to be registered with the Server.

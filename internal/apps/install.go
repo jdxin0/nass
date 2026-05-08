@@ -94,6 +94,7 @@ func Install(ctx context.Context, ic *InstallContext) (*Result, error) {
 		Description:  spec.Description,
 		Icon:         spec.Icon,
 		ComposeFile:  ic.ComposeFile,
+		DataRoot:     ic.DataRoot,
 	}
 	if err := proxy.SaveSettings(ctx, ic.DB, ic.Name, settings); err != nil {
 		return nil, fmt.Errorf("save app settings: %w", err)

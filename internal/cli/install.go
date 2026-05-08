@@ -81,6 +81,68 @@ func appInstallCmd() *cobra.Command {
 	return cmd
 }
 
+func appUninstallCmd() *cobra.Command {
+	var (
+		yes      bool
+		keepData bool
+		force    bool
+	)
+	cmd := &cobra.Command{
+		Use:   "uninstall <name>",
+		Short: "Stop an app, remove its containers/volumes, delete its data folder and DB row",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			return withDB(func(c context.Context, d *sql.DB, cfg *config.Config) error {
+				composeFile, dataRoot, found, err := apps.LoadAppPaths(c, d, name)
+				if err != nil {
+					return err
+				}
+				if !found {
+					return fmt.Errorf("app %q is not installed", name)
+				}
+				// Fall back to the install-time conventions when the saved
+				// settings predate the DataRoot field.
+				if dataRoot == "" && cfg.Orchestrator.DataRoot != "" {
+					dataRoot = filepath.Join(cfg.Orchestrator.DataRoot, name)
+				}
+				if composeFile == "" && cfg.Orchestrator.ComposeRoot != "" {
+					composeFile = filepath.Join(cfg.Orchestrator.ComposeRoot, name, "docker-compose.yaml")
+				}
+
+				if !yes {
+					fmt.Fprintf(cmd.OutOrStderr(),
+						"refusing to uninstall %q without --yes\n  compose: %s\n  data:    %s\n",
+						name, composeFile, dataRoot)
+					return fmt.Errorf("aborted: pass --yes to confirm")
+				}
+
+				uc := &apps.UninstallContext{
+					Name:         name,
+					ComposeFile:  composeFile,
+					DataRoot:     dataRoot,
+					KeepData:     keepData,
+					Force:        force,
+					DB:           d,
+					Orchestrator: orchestrator.New(cfg.Orchestrator.ComposeRoot, cfg.Orchestrator.DockerCompose),
+				}
+				if err := apps.Uninstall(c, uc); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "uninstalled %q\n", name)
+				if keepData {
+					fmt.Fprintf(cmd.OutOrStdout(), "(data folder preserved at %s)\n", dataRoot)
+				}
+				return nil
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "confirm destructive uninstall (required)")
+	cmd.Flags().BoolVar(&keepData, "keep-data", false, "leave the data folder on disk")
+	cmd.Flags().BoolVar(&force, "force", false, "ignore docker compose errors during teardown")
+	return cmd
+}
+
 func appAvailableCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "available",

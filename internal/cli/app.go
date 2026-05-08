@@ -16,7 +16,7 @@ func appCmd() *cobra.Command {
 		Use:   "app",
 		Short: "Manage apps registered with the portal & proxy",
 	}
-	cmd.AddCommand(appListCmd(), appEnableCmd(), appDisableCmd(), appInstallCmd(), appAvailableCmd())
+	cmd.AddCommand(appListCmd(), appEnableCmd(), appDisableCmd(), appInstallCmd(), appUninstallCmd(), appAvailableCmd())
 	return cmd
 }
 

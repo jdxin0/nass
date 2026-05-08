@@ -56,6 +56,16 @@ func (o *Orchestrator) Down(ctx context.Context, composeFile string) (string, er
 	return o.run(ctx, path, "down")
 }
 
+// DownWithVolumes runs `docker compose -f <file> down -v --remove-orphans`,
+// removing named volumes and any orphaned containers. Used by uninstall.
+func (o *Orchestrator) DownWithVolumes(ctx context.Context, composeFile string) (string, error) {
+	path, err := o.resolve(composeFile)
+	if err != nil {
+		return "", err
+	}
+	return o.run(ctx, path, "down", "-v", "--remove-orphans")
+}
+
 // Restart runs `docker compose -f <file> restart`.
 func (o *Orchestrator) Restart(ctx context.Context, composeFile string) (string, error) {
 	path, err := o.resolve(composeFile)
