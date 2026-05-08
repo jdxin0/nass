@@ -54,12 +54,22 @@ func init() {
 		NeedsOIDC:    true,
 		OIDCGate:     false,
 		// jellyfin-plugin-sso v4.x posts the OIDC code to
-		// /sso/OID/redirect/<provider-name>; older docs sometimes call this
-		// /oidc-callback but that path no longer exists.
-		OIDCRedirectPaths: []string{"/sso/OID/redirect/" + ssoProviderName},
-		ComposeTemplate:   composeTemplate,
-		PostUp:            postUp,
+		// /sso/OID/redirect/<provider>. Register both http and https: the
+		// plugin builds the URI from the request scheme it sees, and
+		// Jellyfin doesn't honor X-Forwarded-Proto without KnownProxies.
+		OIDCRedirectURIs: redirectURIs,
+		ComposeTemplate:  composeTemplate,
+		PostUp:           postUp,
 	})
+}
+
+func redirectURIs(ic *apps.InstallContext) []string {
+	path := "/sso/OID/redirect/" + ssoProviderName
+	host := ic.PublicHost()
+	return []string{
+		"https://" + host + path,
+		"http://" + host + path,
+	}
 }
 
 func postUp(ctx context.Context, ic *apps.InstallContext) error {

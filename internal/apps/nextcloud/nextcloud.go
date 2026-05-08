@@ -35,9 +35,11 @@ func init() {
 		PreserveHost:      true,
 		NeedsOIDC:         true,
 		OIDCGate:          false,
-		OIDCRedirectPaths: []string{"/apps/user_oidc/code"},
-		ComposeTemplate:   composeTemplate,
-		PostUp:            postUp,
+		OIDCRedirectURIs: func(ic *apps.InstallContext) []string {
+			return []string{ic.PublicURL() + "/apps/user_oidc/code"}
+		},
+		ComposeTemplate: composeTemplate,
+		PostUp:          postUp,
 	})
 }
 

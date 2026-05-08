@@ -40,11 +40,12 @@ type Spec struct {
 	// app. Used for apps without native OIDC (e.g. qBittorrent).
 	OIDCGate bool
 
-	// OIDCRedirectPaths are the absolute URL paths the app's OIDC client
-	// will redirect to after auth (e.g. "/sso/OID/redirect/nass"). The
-	// installer prepends ic.PublicURL() to each entry and registers them on
-	// the OIDC client. Must be non-empty when NeedsOIDC is true.
-	OIDCRedirectPaths []string
+	// OIDCRedirectURIs returns the full redirect URIs to register on the
+	// OIDC client. Apps usually return [ic.PublicURL()+"/path"], but may
+	// add multiple variants (e.g. http+https) when an upstream client
+	// derives the URI from the request scheme rather than the public URL.
+	// Must return a non-empty slice when NeedsOIDC is true.
+	OIDCRedirectURIs func(ic *InstallContext) []string
 
 	// ComposeTemplate is the embedded docker-compose.yaml template, parsed
 	// with [text/template] against InstallContext.

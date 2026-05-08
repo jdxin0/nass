@@ -64,12 +64,12 @@ func Install(ctx context.Context, ic *InstallContext) (*Result, error) {
 
 	// 1. OIDC client.
 	if spec.NeedsOIDC {
-		if len(spec.OIDCRedirectPaths) == 0 {
-			return nil, fmt.Errorf("app %q: NeedsOIDC=true but OIDCRedirectPaths is empty", ic.Name)
+		if spec.OIDCRedirectURIs == nil {
+			return nil, fmt.Errorf("app %q: NeedsOIDC=true but OIDCRedirectURIs is nil", ic.Name)
 		}
-		redirects := make([]string, 0, len(spec.OIDCRedirectPaths))
-		for _, p := range spec.OIDCRedirectPaths {
-			redirects = append(redirects, ic.PublicURL()+p)
+		redirects := spec.OIDCRedirectURIs(ic)
+		if len(redirects) == 0 {
+			return nil, fmt.Errorf("app %q: OIDCRedirectURIs returned no entries", ic.Name)
 		}
 		prov, err := oidc.Provision(ctx, ic.DB, ic.Name, redirects)
 		if err != nil {
