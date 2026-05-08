@@ -30,13 +30,14 @@ func init() {
 		DisplayName:     "Nextcloud",
 		Description:     "Files, calendar, contacts",
 		Icon:            "☁️",
-		Subdomain:       "nextcloud",
-		BackendPort:     18080,
-		PreserveHost:    true,
-		NeedsOIDC:       true,
-		OIDCGate:        false,
-		ComposeTemplate: composeTemplate,
-		PostUp:          postUp,
+		Subdomain:         "nextcloud",
+		BackendPort:       18080,
+		PreserveHost:      true,
+		NeedsOIDC:         true,
+		OIDCGate:          false,
+		OIDCRedirectPaths: []string{"/apps/user_oidc/code"},
+		ComposeTemplate:   composeTemplate,
+		PostUp:            postUp,
 	})
 }
 

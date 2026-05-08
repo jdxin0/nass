@@ -64,7 +64,13 @@ func Install(ctx context.Context, ic *InstallContext) (*Result, error) {
 
 	// 1. OIDC client.
 	if spec.NeedsOIDC {
-		redirects := defaultRedirectURIs(ic)
+		if len(spec.OIDCRedirectPaths) == 0 {
+			return nil, fmt.Errorf("app %q: NeedsOIDC=true but OIDCRedirectPaths is empty", ic.Name)
+		}
+		redirects := make([]string, 0, len(spec.OIDCRedirectPaths))
+		for _, p := range spec.OIDCRedirectPaths {
+			redirects = append(redirects, ic.PublicURL()+p)
+		}
 		prov, err := oidc.Provision(ctx, ic.DB, ic.Name, redirects)
 		if err != nil {
 			return nil, fmt.Errorf("provision OIDC client: %w", err)
@@ -170,18 +176,6 @@ func renderCompose(ic *InstallContext) error {
 		return fmt.Errorf("write compose file: %w", err)
 	}
 	return nil
-}
-
-// defaultRedirectURIs builds a sane set of OIDC redirect URIs to register for
-// the app. Most apps redirect to a fixed callback path under their own URL;
-// extra hosts (e.g. mobile native callbacks) are added per-app via PreUp.
-func defaultRedirectURIs(ic *InstallContext) []string {
-	return []string{
-		ic.PublicURL() + "/apps/user_oidc/code", // nextcloud
-		ic.PublicURL() + "/oidc-callback",       // jellyfin SSO plugin
-		ic.PublicURL() + "/auth/login",          // immich web
-		ic.PublicURL() + "/oauth2/callback",     // generic / oauth2-proxy
-	}
 }
 
 // WaitFor polls url every interval until it returns *any* HTTP response, or

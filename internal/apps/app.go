@@ -40,6 +40,12 @@ type Spec struct {
 	// app. Used for apps without native OIDC (e.g. qBittorrent).
 	OIDCGate bool
 
+	// OIDCRedirectPaths are the absolute URL paths the app's OIDC client
+	// will redirect to after auth (e.g. "/sso/OID/redirect/nass"). The
+	// installer prepends ic.PublicURL() to each entry and registers them on
+	// the OIDC client. Must be non-empty when NeedsOIDC is true.
+	OIDCRedirectPaths []string
+
 	// ComposeTemplate is the embedded docker-compose.yaml template, parsed
 	// with [text/template] against InstallContext.
 	ComposeTemplate []byte

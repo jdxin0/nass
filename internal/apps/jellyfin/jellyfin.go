@@ -48,13 +48,17 @@ func init() {
 		DisplayName:     "Jellyfin",
 		Description:     "Media server",
 		Icon:            "🎬",
-		Subdomain:       "jellyfin",
-		BackendPort:     18096,
-		PreserveHost:    true,
-		NeedsOIDC:       true,
-		OIDCGate:        false,
-		ComposeTemplate: composeTemplate,
-		PostUp:          postUp,
+		Subdomain:    "jellyfin",
+		BackendPort:  18096,
+		PreserveHost: true,
+		NeedsOIDC:    true,
+		OIDCGate:     false,
+		// jellyfin-plugin-sso v4.x posts the OIDC code to
+		// /sso/OID/redirect/<provider-name>; older docs sometimes call this
+		// /oidc-callback but that path no longer exists.
+		OIDCRedirectPaths: []string{"/sso/OID/redirect/" + ssoProviderName},
+		ComposeTemplate:   composeTemplate,
+		PostUp:            postUp,
 	})
 }
 

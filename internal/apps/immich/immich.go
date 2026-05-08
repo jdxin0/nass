@@ -37,14 +37,15 @@ func init() {
 		DisplayName:     "Immich",
 		Description:     "Photos and videos",
 		Icon:            "📷",
-		Subdomain:       "immich",
-		BackendPort:     18283,
-		PreserveHost:    true,
-		NeedsOIDC:       true,
-		OIDCGate:        false,
-		ComposeTemplate: composeTemplate,
-		PreUp:           preUp,
-		PostUp:          postUp,
+		Subdomain:         "immich",
+		BackendPort:       18283,
+		PreserveHost:      true,
+		NeedsOIDC:         true,
+		OIDCGate:          false,
+		OIDCRedirectPaths: []string{"/auth/login"},
+		ComposeTemplate:   composeTemplate,
+		PreUp:             preUp,
+		PostUp:            postUp,
 	})
 }
 
