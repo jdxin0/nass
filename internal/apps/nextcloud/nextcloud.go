@@ -21,20 +21,20 @@ const (
 	occ            = "/var/www/html/occ"
 	configFile     = "/var/www/html/config/config.php"
 	providerName   = "nass"
-	providerScopes = "openid profile email"
+	providerScopes = "openid profile email groups"
 )
 
 func init() {
 	apps.Register(apps.Spec{
-		Name:            "nextcloud",
-		DisplayName:     "Nextcloud",
-		Description:     "Files, calendar, contacts",
-		Icon:            "☁️",
-		Subdomain:         "nextcloud",
-		BackendPort:       18080,
-		PreserveHost:      true,
-		NeedsOIDC:         true,
-		OIDCGate:          false,
+		Name:         "nextcloud",
+		DisplayName:  "Nextcloud",
+		Description:  "Files, calendar, contacts",
+		Icon:         "☁️",
+		Subdomain:    "nextcloud",
+		BackendPort:  18080,
+		PreserveHost: true,
+		NeedsOIDC:    true,
+		OIDCGate:     false,
 		OIDCRedirectURIs: func(ic *apps.InstallContext) []string {
 			return []string{ic.PublicURL() + "/apps/user_oidc/code"}
 		},
@@ -72,18 +72,24 @@ func postUp(ctx context.Context, ic *apps.InstallContext) error {
 
 	// 4. Register us as the OIDC provider. The user_oidc:provider command is
 	// also idempotent (it updates if the provider already exists by name).
-	args := []string{
+	args := providerArgs(ic)
+	if _, err := ic.Orchestrator.ExecAsUser(ctx, ic.ComposeFile, "nextcloud", "www-data", args...); err != nil {
+		return fmt.Errorf("register user_oidc provider: %w", err)
+	}
+	return nil
+}
+
+func providerArgs(ic *apps.InstallContext) []string {
+	return []string{
 		"php", occ, "user_oidc:provider", providerName,
 		"-d", ic.OIDCDiscoveryURL(),
 		"-c", ic.OIDCClientID,
 		"-s", ic.OIDCClientSecret,
 		"--scope", providerScopes,
 		"--unique-uid=0",
+		"--group-provisioning=1",
+		"--group-whitelist-regex=/^(admin|user)$/",
 	}
-	if _, err := ic.Orchestrator.ExecAsUser(ctx, ic.ComposeFile, "nextcloud", "www-data", args...); err != nil {
-		return fmt.Errorf("register user_oidc provider: %w", err)
-	}
-	return nil
 }
 
 // ensureLocalRemoteServers patches /var/www/html/config/config.php to add
