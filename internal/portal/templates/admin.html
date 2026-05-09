@@ -30,7 +30,7 @@
       <form method="POST" action="/portal/admin/apps/{{.Name}}/start"><button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">start</button></form>
       <form method="POST" action="/portal/admin/apps/{{.Name}}/stop"><button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">stop</button></form>
     {{end}}
-    <form method="POST" action="/portal/admin/apps/{{.Name}}/disable"><button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">disable</button></form>
+    <form method="POST" action="/portal/admin/apps/{{.Name}}/uninstall"><button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">uninstall</button></form>
   </td>
 </tr>
 {{end}}
@@ -55,6 +55,8 @@
   <td class="actions">
     {{if .Installed}}
       <span class="badge running">installed</span>
+    {{else if .Installing}}
+      <span class="badge running">installing</span>
     {{else}}
       <form method="POST" action="/portal/admin/apps">
         <input type="hidden" name="name" value="{{.Name}}">
@@ -68,6 +70,25 @@
 </table>
 {{end}}
 </section>
+
+{{if .Jobs}}
+<section class="panel">
+<h2>Recent operations</h2>
+<table>
+<thead><tr><th>App</th><th>Action</th><th>Status</th><th>Message</th></tr></thead>
+<tbody>
+{{range .Jobs}}
+<tr>
+  <td><strong>{{.AppName}}</strong></td>
+  <td>{{.Action}}</td>
+  <td><span class="badge {{.Status}}">{{.Status}}</span></td>
+  <td>{{.Message}}</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+</section>
+{{end}}
 
 <section class="split">
   <div class="panel">

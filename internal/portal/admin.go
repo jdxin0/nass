@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/orchestrator"
@@ -29,6 +30,7 @@ type availableAppRow struct {
 	Description string
 	Subdomain   string
 	Installed   bool
+	Installing  bool
 }
 
 type adminUserRow struct {
@@ -70,6 +72,7 @@ func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 			Description: spec.Description,
 			Subdomain:   spec.Subdomain,
 			Installed:   installed[spec.Name],
+			Installing:  p.hasRunningJob("install", spec.Name),
 		})
 	}
 	users, err := p.Users.List(r.Context())
@@ -91,6 +94,7 @@ func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 		"Apps":      rows,
 		"Available": available,
 		"Users":     userRows,
+		"Jobs":      p.recentJobs(),
 		"Flash":     r.URL.Query().Get("flash"),
 		"Error":     r.URL.Query().Get("error"),
 	})
@@ -123,16 +127,16 @@ func (p *Portal) postAddApp(w http.ResponseWriter, r *http.Request) {
 		redirectAdmin(w, r, "", err.Error())
 		return
 	}
-	res, err := p.InstallApp(r.Context(), ic)
-	if err != nil {
-		redirectAdmin(w, r, "", "install failed: "+err.Error())
-		return
-	}
-	if err := p.reload(r.Context()); err != nil {
-		redirectAdmin(w, r, "", "installed but route reload failed: "+err.Error())
-		return
-	}
-	redirectAdmin(w, r, fmt.Sprintf("installed %s", res.AppName), "")
+	p.startAppJob("install", name, func(ctx context.Context) error {
+		if _, err := p.InstallApp(ctx, ic); err != nil {
+			return err
+		}
+		if err := p.reload(ctx); err != nil {
+			return fmt.Errorf("installed but route reload failed: %w", err)
+		}
+		return nil
+	})
+	redirectAdmin(w, r, fmt.Sprintf("started installing %s", name), "")
 }
 
 func (p *Portal) postCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -365,7 +369,7 @@ func (p *Portal) postStopApp(w http.ResponseWriter, r *http.Request) {
 	redirectAdmin(w, r, "stopped "+name, "")
 }
 
-func (p *Portal) postDisableApp(w http.ResponseWriter, r *http.Request) {
+func (p *Portal) postUninstallApp(w http.ResponseWriter, r *http.Request) {
 	if _, ok := p.requireAdmin(w, r); !ok {
 		return
 	}
@@ -374,16 +378,85 @@ func (p *Portal) postDisableApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	if _, err := p.DB.ExecContext(r.Context(),
-		`UPDATE apps SET enabled = 0 WHERE name = ?`, name); err != nil {
+	composeFile, dataRoot, found, err := apps.LoadAppPaths(r.Context(), p.DB, name)
+	if err != nil {
 		redirectAdmin(w, r, "", err.Error())
 		return
 	}
-	if err := p.reload(r.Context()); err != nil {
-		redirectAdmin(w, r, "", "disabled but route reload failed: "+err.Error())
+	if !found {
+		redirectAdmin(w, r, "", fmt.Sprintf("app %q is not installed", name))
 		return
 	}
-	redirectAdmin(w, r, "disabled "+name+" and dropped route", "")
+	uc := &apps.UninstallContext{
+		Name:         name,
+		ComposeFile:  composeFile,
+		DataRoot:     dataRoot,
+		DB:           p.DB,
+		Orchestrator: p.Orchestrator,
+	}
+	p.startAppJob("uninstall", name, func(ctx context.Context) error {
+		if err := p.UninstallApp(ctx, uc); err != nil {
+			return err
+		}
+		if err := p.reload(ctx); err != nil {
+			return fmt.Errorf("uninstalled but route reload failed: %w", err)
+		}
+		return nil
+	})
+	redirectAdmin(w, r, fmt.Sprintf("started uninstalling %s", name), "")
+}
+
+func (p *Portal) startAppJob(action, name string, fn func(context.Context) error) {
+	now := time.Now()
+	job := &appJob{
+		ID:        now.UnixNano(),
+		Action:    action,
+		AppName:   name,
+		Status:    "running",
+		Message:   "running",
+		StartedAt: now,
+	}
+	p.jobsMu.Lock()
+	p.jobs = append([]*appJob{job}, p.jobs...)
+	if len(p.jobs) > 20 {
+		p.jobs = p.jobs[:20]
+	}
+	p.jobsMu.Unlock()
+
+	go func() {
+		err := fn(context.Background())
+		p.jobsMu.Lock()
+		defer p.jobsMu.Unlock()
+		job.FinishedAt = time.Now()
+		if err != nil {
+			job.Status = "error"
+			job.Message = err.Error()
+			return
+		}
+		job.Status = "done"
+		job.Message = "completed"
+	}()
+}
+
+func (p *Portal) recentJobs() []appJob {
+	p.jobsMu.Lock()
+	defer p.jobsMu.Unlock()
+	out := make([]appJob, 0, len(p.jobs))
+	for _, job := range p.jobs {
+		out = append(out, *job)
+	}
+	return out
+}
+
+func (p *Portal) hasRunningJob(action, name string) bool {
+	p.jobsMu.Lock()
+	defer p.jobsMu.Unlock()
+	for _, job := range p.jobs {
+		if job.Action == action && job.AppName == name && job.Status == "running" {
+			return true
+		}
+	}
+	return false
 }
 
 // reload triggers a live route sync if the manager is wired (no-op otherwise).

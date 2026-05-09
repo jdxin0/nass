@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/auth"
@@ -174,13 +175,48 @@ func TestAdminAddAppPersists(t *testing.T) {
 		t.Fatalf("expected /portal/admin, got %s", resp.Request.URL)
 	}
 
-	got, err := proxy.LoadEnabled(context.Background(), f.db, "test.local")
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
+	var got []proxy.AppRoute
+	waitFor(t, func() bool {
+		var err error
+		got, err = proxy.LoadEnabled(context.Background(), f.db, "test.local")
+		if err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		return len(got) == 1
+	})
 	if len(got) != 1 || got[0].Name != "nextcloud" || got[0].Settings.Backend != "http://127.0.0.1:18080" {
 		t.Fatalf("unexpected: %+v", got)
 	}
+}
+
+func TestAdminUninstallAppRunsInBackground(t *testing.T) {
+	f := newFixture(t)
+	jar, _ := cookiejar.New(nil)
+	hc := &http.Client{Jar: jar}
+
+	if err := proxy.SaveSettings(context.Background(), f.db, "nextcloud", proxy.AppSettings{
+		Subdomain: "nextcloud",
+		Backend:   "http://127.0.0.1:18080",
+	}); err != nil {
+		t.Fatalf("save app: %v", err)
+	}
+	if _, err := hc.PostForm(f.server.URL+"/portal/login",
+		url.Values{"username": {"admin"}, "password": {"supersecretpw"}, "next": {"/"}}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := hc.PostForm(f.server.URL+"/portal/admin/apps/nextcloud/uninstall", nil)
+	if err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	resp.Body.Close()
+
+	waitFor(t, func() bool {
+		got, err := proxy.LoadEnabled(context.Background(), f.db, "test.local")
+		if err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		return len(got) == 0
+	})
 }
 
 func TestAdminUserManagement(t *testing.T) {
@@ -244,6 +280,18 @@ func TestAdminUserManagement(t *testing.T) {
 	if _, err := f.users.GetByUsername(context.Background(), "bob"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Fatalf("bob should be deleted, got %v", err)
 	}
+}
+
+func waitFor(t *testing.T, ok func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if ok() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("condition not met before timeout")
 }
 
 func TestGateRedirectsUnauthenticated(t *testing.T) {

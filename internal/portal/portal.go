@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/auth"
@@ -35,13 +37,26 @@ type Portal struct {
 	OIDCIssuer  string
 	PublicPort  string
 
-	InstallApp func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error)
+	InstallApp   func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error)
+	UninstallApp func(ctx context.Context, uc *apps.UninstallContext) error
 
 	// Reload, when set, is called after admin mutations to re-sync the live
 	// proxy with the apps table.
 	Reload func(ctx context.Context) error
 
-	pages map[string]*template.Template
+	jobsMu sync.Mutex
+	jobs   []*appJob
+	pages  map[string]*template.Template
+}
+
+type appJob struct {
+	ID         int64
+	Action     string
+	AppName    string
+	Status     string
+	Message    string
+	StartedAt  time.Time
+	FinishedAt time.Time
 }
 
 func New(db *sql.DB, users *auth.Store, ss *SessionStore, orch *orchestrator.Orchestrator, baseHost, siteTitle string, https bool) (*Portal, error) {
@@ -58,6 +73,7 @@ func New(db *sql.DB, users *auth.Store, ss *SessionStore, orch *orchestrator.Orc
 		SiteTitle:    siteTitle,
 		HTTPS:        https,
 		InstallApp:   apps.Install,
+		UninstallApp: apps.Uninstall,
 		pages:        pages,
 	}, nil
 }
@@ -86,7 +102,7 @@ func (p *Portal) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /portal/admin/apps", p.postAddApp)
 	mux.HandleFunc("POST /portal/admin/apps/{name}/start", p.postStartApp)
 	mux.HandleFunc("POST /portal/admin/apps/{name}/stop", p.postStopApp)
-	mux.HandleFunc("POST /portal/admin/apps/{name}/disable", p.postDisableApp)
+	mux.HandleFunc("POST /portal/admin/apps/{name}/uninstall", p.postUninstallApp)
 	mux.HandleFunc("POST /portal/admin/users", p.postCreateUser)
 	mux.HandleFunc("POST /portal/admin/users/{id}", p.postUpdateUser)
 	mux.HandleFunc("POST /portal/admin/users/{id}/password", p.postSetUserPassword)
