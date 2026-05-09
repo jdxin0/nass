@@ -64,6 +64,8 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			portalSrv.AppDataRoot = cfg.Orchestrator.DataRoot
+			portalSrv.OIDCIssuer = cfg.OIDC.Issuer
 
 			authSrv, err := oidc.New(d, users, oidc.Options{
 				Issuer:        cfg.OIDC.Issuer,

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/auth"
 	"github.com/jdxin0/nass/internal/orchestrator"
 )
@@ -29,6 +30,12 @@ type Portal struct {
 	BaseHost  string
 	SiteTitle string
 	HTTPS     bool // false in dev: portal links use http://
+
+	AppDataRoot string
+	OIDCIssuer  string
+	PublicPort  string
+
+	InstallApp func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error)
 
 	// Reload, when set, is called after admin mutations to re-sync the live
 	// proxy with the apps table.
@@ -50,6 +57,7 @@ func New(db *sql.DB, users *auth.Store, ss *SessionStore, orch *orchestrator.Orc
 		BaseHost:     baseHost,
 		SiteTitle:    siteTitle,
 		HTTPS:        https,
+		InstallApp:   apps.Install,
 		pages:        pages,
 	}, nil
 }

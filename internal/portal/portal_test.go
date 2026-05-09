@@ -12,11 +12,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/auth"
 	"github.com/jdxin0/nass/internal/db"
 	"github.com/jdxin0/nass/internal/orchestrator"
 	"github.com/jdxin0/nass/internal/portal"
 	"github.com/jdxin0/nass/internal/proxy"
+
+	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
 )
 
 type fixture struct {
@@ -43,11 +46,14 @@ func newFixture(t *testing.T) *fixture {
 	}
 	ss := portal.NewSessionStore(d, users, "" /* no domain in tests */)
 	ss.Insecure = true
-	orch := orchestrator.New("", "")
+	root := t.TempDir()
+	orch := orchestrator.New(filepath.Join(root, "compose"), "")
 	p, err := portal.New(d, users, ss, orch, "test.local", "Test Portal", false)
 	if err != nil {
 		t.Fatalf("portal: %v", err)
 	}
+	p.AppDataRoot = filepath.Join(root, "data")
+	p.OIDCIssuer = "http://auth.test.local"
 	mux := http.NewServeMux()
 	p.Mount(mux)
 	ts := httptest.NewServer(mux)
@@ -137,18 +143,26 @@ func TestAdminAddAppPersists(t *testing.T) {
 	f := newFixture(t)
 	jar, _ := cookiejar.New(nil)
 	hc := &http.Client{Jar: jar}
+	f.portal.InstallApp = func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error) {
+		settings := proxy.AppSettings{
+			Subdomain:    ic.Subdomain,
+			Backend:      "http://127.0.0.1:18080",
+			PreserveHost: true,
+			DisplayName:  ic.Spec.DisplayName,
+			Description:  ic.Spec.Description,
+		}
+		if err := proxy.SaveSettings(ctx, ic.DB, ic.Name, settings); err != nil {
+			return nil, err
+		}
+		return &apps.Result{AppName: ic.Name}, nil
+	}
 
 	if _, err := hc.PostForm(f.server.URL+"/portal/login",
 		url.Values{"username": {"admin"}, "password": {"supersecretpw"}, "next": {"/"}}); err != nil {
 		t.Fatal(err)
 	}
 	resp, err := hc.PostForm(f.server.URL+"/portal/admin/apps", url.Values{
-		"name":          {"nextcloud"},
-		"display_name":  {"Nextcloud"},
-		"description":   {"Files"},
-		"subdomain":     {"nextcloud"},
-		"backend":       {"http://127.0.0.1:18080"},
-		"preserve_host": {"1"},
+		"name": {"nextcloud"},
 	})
 	if err != nil {
 		t.Fatalf("post: %v", err)

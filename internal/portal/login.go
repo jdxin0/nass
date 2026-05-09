@@ -13,7 +13,8 @@ func (p *Portal) getLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.render(w, "login.html", nil, map[string]any{
-		"Next": r.URL.Query().Get("next"),
+		"Next":      r.URL.Query().Get("next"),
+		"BodyClass": "login-page",
 	})
 }
 
@@ -33,8 +34,9 @@ func (p *Portal) postLogin(w http.ResponseWriter, r *http.Request) {
 			// keep generic message — don't leak which field was wrong
 		}
 		p.render(w, "login.html", nil, map[string]any{
-			"Next":  r.FormValue("next"),
-			"Error": errMsg,
+			"Next":      r.FormValue("next"),
+			"Error":     errMsg,
+			"BodyClass": "login-page",
 		})
 		return
 	}

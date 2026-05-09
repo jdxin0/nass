@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"regexp"
 
+	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/orchestrator"
 	"github.com/jdxin0/nass/internal/proxy"
 )
@@ -20,18 +22,26 @@ type adminAppRow struct {
 	State       orchestrator.State
 }
 
+type availableAppRow struct {
+	Name        string
+	DisplayName string
+	Description string
+	Subdomain   string
+	Installed   bool
+}
+
 func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 	sess, ok := p.requireAdmin(w, r)
 	if !ok {
 		return
 	}
-	apps, err := loadAllApps(r.Context(), p.DB)
+	installedApps, err := loadAllApps(r.Context(), p.DB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rows := make([]adminAppRow, 0, len(apps))
-	for _, a := range apps {
+	rows := make([]adminAppRow, 0, len(installedApps))
+	for _, a := range installedApps {
 		rows = append(rows, adminAppRow{
 			Name:        a.Name,
 			DisplayName: a.displayName(),
@@ -39,10 +49,25 @@ func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 			State:       p.stateOf(r.Context(), a),
 		})
 	}
+	installed := make(map[string]bool, len(installedApps))
+	for _, a := range installedApps {
+		installed[a.Name] = true
+	}
+	available := make([]availableAppRow, 0)
+	for _, spec := range apps.All() {
+		available = append(available, availableAppRow{
+			Name:        spec.Name,
+			DisplayName: spec.DisplayName,
+			Description: spec.Description,
+			Subdomain:   spec.Subdomain,
+			Installed:   installed[spec.Name],
+		})
+	}
 	p.render(w, "admin.html", sess, map[string]any{
-		"Apps":  rows,
-		"Flash": r.URL.Query().Get("flash"),
-		"Error": r.URL.Query().Get("error"),
+		"Apps":      rows,
+		"Available": available,
+		"Flash":     r.URL.Query().Get("flash"),
+		"Error":     r.URL.Query().Get("error"),
 	})
 }
 
@@ -63,29 +88,59 @@ func (p *Portal) postAddApp(w http.ResponseWriter, r *http.Request) {
 		redirectAdmin(w, r, "", "invalid name (alnum + _ -)")
 		return
 	}
-	settings := proxy.AppSettings{
-		Subdomain:    r.FormValue("subdomain"),
-		Backend:      r.FormValue("backend"),
-		PreserveHost: r.FormValue("preserve_host") == "1",
-		OIDCGate:     r.FormValue("oidc_gate") == "1",
-		DisplayName:  r.FormValue("display_name"),
-		Description:  r.FormValue("description"),
-		Icon:         r.FormValue("icon"),
-		ComposeFile:  r.FormValue("compose_file"),
-	}
-	if settings.Subdomain == "" || settings.Backend == "" {
-		redirectAdmin(w, r, "", "subdomain and backend are required")
+	spec, ok := apps.Get(name)
+	if !ok {
+		redirectAdmin(w, r, "", fmt.Sprintf("unknown app %q", name))
 		return
 	}
-	if err := proxy.SaveSettings(r.Context(), p.DB, name, settings); err != nil {
+	ic, err := p.installContext(&spec)
+	if err != nil {
 		redirectAdmin(w, r, "", err.Error())
 		return
 	}
-	if err := p.reload(r.Context()); err != nil {
-		redirectAdmin(w, r, "", "saved but route reload failed: "+err.Error())
+	res, err := p.InstallApp(r.Context(), ic)
+	if err != nil {
+		redirectAdmin(w, r, "", "install failed: "+err.Error())
 		return
 	}
-	redirectAdmin(w, r, fmt.Sprintf("added %s and published route", name), "")
+	if err := p.reload(r.Context()); err != nil {
+		redirectAdmin(w, r, "", "installed but route reload failed: "+err.Error())
+		return
+	}
+	redirectAdmin(w, r, fmt.Sprintf("installed %s", res.AppName), "")
+}
+
+func (p *Portal) installContext(spec *apps.Spec) (*apps.InstallContext, error) {
+	if p.Orchestrator == nil {
+		return nil, fmt.Errorf("orchestrator not configured")
+	}
+	if p.Orchestrator.ComposeRoot == "" {
+		return nil, fmt.Errorf("orchestrator compose root is not configured")
+	}
+	if p.AppDataRoot == "" {
+		return nil, fmt.Errorf("app data root is not configured")
+	}
+	if p.OIDCIssuer == "" {
+		return nil, fmt.Errorf("oidc issuer is not configured")
+	}
+	scheme := "https"
+	if !p.HTTPS {
+		scheme = "http"
+	}
+	return &apps.InstallContext{
+		Spec:         spec,
+		Name:         spec.Name,
+		Subdomain:    spec.Subdomain,
+		BaseHost:     p.BaseHost,
+		PublicScheme: scheme,
+		PublicPort:   p.PublicPort,
+		BackendPort:  spec.BackendPort,
+		DataRoot:     filepath.Join(p.AppDataRoot, spec.Name),
+		ComposeFile:  filepath.Join(p.Orchestrator.ComposeRoot, spec.Name, "docker-compose.yaml"),
+		OIDCIssuer:   p.OIDCIssuer,
+		DB:           p.DB,
+		Orchestrator: p.Orchestrator,
+	}, nil
 }
 
 func (p *Portal) postStartApp(w http.ResponseWriter, r *http.Request) {

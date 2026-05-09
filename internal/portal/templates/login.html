@@ -1,9 +1,10 @@
 {{define "content"}}
 <form class="login" method="POST" action="/portal/login">
   <h1>Sign in to {{.SiteTitle}}</h1>
+  <p class="subtitle">Use your nass account to manage and launch apps.</p>
   <input type="hidden" name="next" value="{{.Next}}">
   <label for="username">Username</label>
-  <input id="username" name="username" autocomplete="username" required autofocus>
+  <input id="username" name="username" type="text" autocomplete="username" required autofocus>
   <label for="password">Password</label>
   <input id="password" name="password" type="password" autocomplete="current-password" required>
   {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
