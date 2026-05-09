@@ -90,62 +90,60 @@
 </section>
 {{end}}
 
-<section class="split">
-  <div class="panel">
-    <h2>Users</h2>
-    {{if not .Users}}
-      <p style="color:var(--muted)">No users.</p>
-    {{else}}
-    <table>
-    <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
-    <tbody>
-    {{range .Users}}
-    <tr>
-      <td><strong>{{.Username}}</strong>{{if .IsSelf}} <span class="badge unknown">you</span>{{end}}</td>
-      <td>
-        <form method="POST" action="/portal/admin/users/{{.ID}}">
-          <div class="inline-fields">
-            <input type="email" name="email" value="{{.Email}}" placeholder="email@example.com">
-            {{if .IsSelf}}
-              <input type="hidden" name="is_admin" value="1">
-              <label style="margin:0;color:var(--text)"><input type="checkbox" checked disabled> admin</label>
-            {{else}}
-              <label style="margin:0;color:var(--text)"><input type="checkbox" name="is_admin" value="1" {{if .IsAdmin}}checked{{end}}> admin</label>
-            {{end}}
-          </div>
-          <button type="submit" class="secondary" style="margin-top:.5rem;padding:.3rem .6rem;font-size:.8rem">save</button>
+<section class="panel">
+  <h2>Users</h2>
+  <table>
+  <thead><tr><th>User</th><th>Email and role</th><th>Password</th><th>Actions</th></tr></thead>
+  <tbody>
+  {{range .Users}}
+  <tr>
+    <td><strong>{{.Username}}</strong>{{if .IsSelf}} <span class="badge unknown">you</span>{{end}}</td>
+    <td>
+      <form method="POST" action="/portal/admin/users/{{.ID}}">
+        <div class="inline-fields">
+          <input type="email" name="email" value="{{.Email}}" placeholder="email@example.com">
+          {{if .IsSelf}}
+            <input type="hidden" name="is_admin" value="1">
+            <label style="margin:0;color:var(--text)"><input type="checkbox" checked disabled> admin</label>
+          {{else}}
+            <label style="margin:0;color:var(--text)"><input type="checkbox" name="is_admin" value="1" {{if .IsAdmin}}checked{{end}}> admin</label>
+          {{end}}
+        </div>
+        <button type="submit" class="secondary" style="margin-top:.5rem;padding:.3rem .6rem;font-size:.8rem">save</button>
+      </form>
+    </td>
+    <td>
+      <form method="POST" action="/portal/admin/users/{{.ID}}/password">
+        <div class="inline-fields">
+          <input type="password" name="password" minlength="8" placeholder="new password" required>
+          <button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">set</button>
+        </div>
+      </form>
+    </td>
+    <td class="actions">
+      {{if .IsAdmin}}<span class="badge running">admin</span>{{else}}<span class="badge unknown">user</span>{{end}}
+      {{if not .IsSelf}}
+        <form method="POST" action="/portal/admin/users/{{.ID}}/delete" style="display:block;margin-top:.5rem">
+          <button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">delete</button>
         </form>
-      </td>
-      <td>{{if .IsAdmin}}<span class="badge running">admin</span>{{else}}<span class="badge unknown">user</span>{{end}}</td>
-      <td class="actions">
-        <form method="POST" action="/portal/admin/users/{{.ID}}/password">
-          <div class="inline-fields">
-            <input type="password" name="password" minlength="8" placeholder="new password" required>
-            <button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">set</button>
-          </div>
-        </form>
-        {{if not .IsSelf}}
-          <form method="POST" action="/portal/admin/users/{{.ID}}/delete">
-            <button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">delete</button>
-          </form>
-        {{end}}
-      </td>
-    </tr>
-    {{end}}
-    </tbody>
-    </table>
-    {{end}}
-  </div>
-
-  <form class="panel" method="POST" action="/portal/admin/users">
-    <h2>Create user</h2>
-    <div class="form-grid">
-      <label>Username<input type="text" name="username" required autocomplete="off"></label>
-      <label>Email<input type="email" name="email" autocomplete="off"></label>
-      <label class="wide">Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-      <label class="wide" style="color:var(--text)"><input type="checkbox" name="is_admin" value="1"> grant admin access</label>
-    </div>
-    <button type="submit" style="margin-top:1rem">Create user</button>
-  </form>
+      {{end}}
+    </td>
+  </tr>
+  {{end}}
+  <tr>
+    <td colspan="4">
+      <form method="POST" action="/portal/admin/users">
+        <div class="user-row-fields">
+          <label>Username<input type="text" name="username" required autocomplete="off"></label>
+          <label>Email<input type="email" name="email" autocomplete="off"></label>
+          <label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+          <label style="color:var(--text)"><input type="checkbox" name="is_admin" value="1"> admin</label>
+          <button type="submit">Create user</button>
+        </div>
+      </form>
+    </td>
+  </tr>
+  </tbody>
+  </table>
 </section>
 {{end}}
