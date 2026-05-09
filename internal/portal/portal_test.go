@@ -3,12 +3,14 @@ package portal_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -178,6 +180,69 @@ func TestAdminAddAppPersists(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Name != "nextcloud" || got[0].Settings.Backend != "http://127.0.0.1:18080" {
 		t.Fatalf("unexpected: %+v", got)
+	}
+}
+
+func TestAdminUserManagement(t *testing.T) {
+	f := newFixture(t)
+	jar, _ := cookiejar.New(nil)
+	hc := &http.Client{Jar: jar}
+
+	if _, err := hc.PostForm(f.server.URL+"/portal/login",
+		url.Values{"username": {"admin"}, "password": {"supersecretpw"}, "next": {"/"}}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := hc.PostForm(f.server.URL+"/portal/admin/users", url.Values{
+		"username": {"bob"},
+		"email":    {"bob@example.com"},
+		"password": {"bobpassword"},
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	resp.Body.Close()
+	bob, err := f.users.GetByUsername(context.Background(), "bob")
+	if err != nil {
+		t.Fatalf("load bob: %v", err)
+	}
+	if bob.IsAdmin {
+		t.Fatalf("bob should not start as admin")
+	}
+
+	resp, err = hc.PostForm(f.server.URL+"/portal/admin/users/"+strconv.FormatInt(bob.ID, 10), url.Values{
+		"email":    {"bob2@example.com"},
+		"is_admin": {"1"},
+	})
+	if err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+	resp.Body.Close()
+	bob, err = f.users.GetByUsername(context.Background(), "bob")
+	if err != nil {
+		t.Fatalf("reload bob: %v", err)
+	}
+	if bob.Email != "bob2@example.com" || !bob.IsAdmin {
+		t.Fatalf("unexpected bob after update: %+v", bob)
+	}
+
+	resp, err = hc.PostForm(f.server.URL+"/portal/admin/users/"+strconv.FormatInt(bob.ID, 10)+"/password", url.Values{
+		"password": {"newbobpassword"},
+	})
+	if err != nil {
+		t.Fatalf("set password: %v", err)
+	}
+	resp.Body.Close()
+	if _, err := f.users.Verify(context.Background(), "bob", "newbobpassword"); err != nil {
+		t.Fatalf("verify new password: %v", err)
+	}
+
+	resp, err = hc.PostForm(f.server.URL+"/portal/admin/users/"+strconv.FormatInt(bob.ID, 10)+"/delete", nil)
+	if err != nil {
+		t.Fatalf("delete user: %v", err)
+	}
+	resp.Body.Close()
+	if _, err := f.users.GetByUsername(context.Background(), "bob"); !errors.Is(err, auth.ErrUserNotFound) {
+		t.Fatalf("bob should be deleted, got %v", err)
 	}
 }
 

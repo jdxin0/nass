@@ -1,7 +1,8 @@
 {{define "content"}}
 <form class="login" method="POST" action="/portal/login">
+  <p class="eyebrow">{{.SiteTitle}}</p>
   <h1>Sign in to {{.SiteTitle}}</h1>
-  <p class="subtitle">Use your nass account to manage and launch apps.</p>
+  <p class="subtitle">Launch your apps and manage your home server from one place.</p>
   <input type="hidden" name="next" value="{{.Next}}">
   <label for="username">Username</label>
   <input id="username" name="username" type="text" autocomplete="username" required autofocus>

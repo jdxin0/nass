@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 
 	"github.com/jdxin0/nass/internal/apps"
 	"github.com/jdxin0/nass/internal/orchestrator"
@@ -28,6 +29,14 @@ type availableAppRow struct {
 	Description string
 	Subdomain   string
 	Installed   bool
+}
+
+type adminUserRow struct {
+	ID       int64
+	Username string
+	Email    string
+	IsAdmin  bool
+	IsSelf   bool
 }
 
 func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
@@ -63,9 +72,25 @@ func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 			Installed:   installed[spec.Name],
 		})
 	}
+	users, err := p.Users.List(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	userRows := make([]adminUserRow, 0, len(users))
+	for _, u := range users {
+		userRows = append(userRows, adminUserRow{
+			ID:       u.ID,
+			Username: u.Username,
+			Email:    u.Email,
+			IsAdmin:  u.IsAdmin,
+			IsSelf:   u.ID == sess.User.ID,
+		})
+	}
 	p.render(w, "admin.html", sess, map[string]any{
 		"Apps":      rows,
 		"Available": available,
+		"Users":     userRows,
 		"Flash":     r.URL.Query().Get("flash"),
 		"Error":     r.URL.Query().Get("error"),
 	})
@@ -108,6 +133,153 @@ func (p *Portal) postAddApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectAdmin(w, r, fmt.Sprintf("installed %s", res.AppName), "")
+}
+
+func (p *Portal) postCreateUser(w http.ResponseWriter, r *http.Request) {
+	if _, ok := p.requireAdmin(w, r); !ok {
+		return
+	}
+	if !sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	username := r.FormValue("username")
+	email := r.FormValue("email")
+	password := r.FormValue("password")
+	isAdmin := r.FormValue("is_admin") == "1"
+	u, err := p.Users.Create(r.Context(), username, email, password, isAdmin)
+	if err != nil {
+		redirectAdmin(w, r, "", "create user failed: "+err.Error())
+		return
+	}
+	redirectAdmin(w, r, fmt.Sprintf("created user %s", u.Username), "")
+}
+
+func (p *Portal) postUpdateUser(w http.ResponseWriter, r *http.Request) {
+	sess, ok := p.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	if !sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	id, ok := userIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	isAdmin := r.FormValue("is_admin") == "1"
+	if id == sess.User.ID && !isAdmin {
+		redirectAdmin(w, r, "", "cannot remove admin from your own account")
+		return
+	}
+	if !isAdmin {
+		if ok, err := p.canRemoveAdmin(r.Context(), id); err != nil {
+			redirectAdmin(w, r, "", err.Error())
+			return
+		} else if !ok {
+			redirectAdmin(w, r, "", "cannot remove the last admin")
+			return
+		}
+	}
+	if err := p.Users.SetEmail(r.Context(), id, r.FormValue("email")); err != nil {
+		redirectAdmin(w, r, "", "update email failed: "+err.Error())
+		return
+	}
+	if err := p.Users.SetAdmin(r.Context(), id, isAdmin); err != nil {
+		redirectAdmin(w, r, "", "update role failed: "+err.Error())
+		return
+	}
+	redirectAdmin(w, r, "updated user", "")
+}
+
+func (p *Portal) postSetUserPassword(w http.ResponseWriter, r *http.Request) {
+	if _, ok := p.requireAdmin(w, r); !ok {
+		return
+	}
+	if !sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	id, ok := userIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	if err := p.Users.SetPassword(r.Context(), id, r.FormValue("password")); err != nil {
+		redirectAdmin(w, r, "", "set password failed: "+err.Error())
+		return
+	}
+	redirectAdmin(w, r, "updated password", "")
+}
+
+func (p *Portal) postDeleteUser(w http.ResponseWriter, r *http.Request) {
+	sess, ok := p.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	if !sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	id, ok := userIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	if id == sess.User.ID {
+		redirectAdmin(w, r, "", "cannot delete your own account")
+		return
+	}
+	if ok, err := p.canRemoveAdmin(r.Context(), id); err != nil {
+		redirectAdmin(w, r, "", err.Error())
+		return
+	} else if !ok {
+		redirectAdmin(w, r, "", "cannot delete the last admin")
+		return
+	}
+	if err := p.Users.Delete(r.Context(), id); err != nil {
+		redirectAdmin(w, r, "", "delete user failed: "+err.Error())
+		return
+	}
+	redirectAdmin(w, r, "deleted user", "")
+}
+
+func userIDFromPath(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return 0, false
+	}
+	return id, true
+}
+
+func (p *Portal) canRemoveAdmin(ctx context.Context, id int64) (bool, error) {
+	users, err := p.Users.List(ctx)
+	if err != nil {
+		return false, err
+	}
+	admins := 0
+	targetAdmin := false
+	for _, u := range users {
+		if u.IsAdmin {
+			admins++
+		}
+		if u.ID == id {
+			targetAdmin = u.IsAdmin
+		}
+	}
+	return !targetAdmin || admins > 1, nil
 }
 
 func (p *Portal) installContext(spec *apps.Spec) (*apps.InstallContext, error) {

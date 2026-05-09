@@ -101,6 +101,20 @@ func (s *Store) SetEmail(ctx context.Context, id int64, email string) error {
 	return nil
 }
 
+func (s *Store) SetAdmin(ctx context.Context, id int64, isAdmin bool) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE users SET is_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		boolInt(isAdmin), id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 func (s *Store) SetPassword(ctx context.Context, id int64, password string) error {
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")

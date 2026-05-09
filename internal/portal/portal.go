@@ -87,6 +87,10 @@ func (p *Portal) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /portal/admin/apps/{name}/start", p.postStartApp)
 	mux.HandleFunc("POST /portal/admin/apps/{name}/stop", p.postStopApp)
 	mux.HandleFunc("POST /portal/admin/apps/{name}/disable", p.postDisableApp)
+	mux.HandleFunc("POST /portal/admin/users", p.postCreateUser)
+	mux.HandleFunc("POST /portal/admin/users/{id}", p.postUpdateUser)
+	mux.HandleFunc("POST /portal/admin/users/{id}/password", p.postSetUserPassword)
+	mux.HandleFunc("POST /portal/admin/users/{id}/delete", p.postDeleteUser)
 	mux.HandleFunc("GET /", p.getDashboard)
 }
 

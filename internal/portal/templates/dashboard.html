@@ -1,7 +1,14 @@
 {{define "content"}}
-<h1 style="margin-top:0">Apps</h1>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Portal</p>
+    <h1>Apps</h1>
+    <p class="subtle">Open and monitor the services managed by nass.</p>
+  </div>
+  {{if .User.IsAdmin}}<a class="btn secondary" href="/portal/admin">Manage</a>{{end}}
+</div>
 {{if not .Apps}}
-  <p style="color:var(--muted)">No apps yet. {{if .User.IsAdmin}}<a href="/portal/admin">Add one</a>.{{end}}</p>
+  <div class="empty">No apps yet. {{if .User.IsAdmin}}Open admin to install one.{{end}}</div>
 {{end}}
 <div class="grid">
   {{range .Apps}}
