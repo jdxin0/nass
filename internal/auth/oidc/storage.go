@@ -294,9 +294,9 @@ func (s *Storage) fillUserinfo(ctx context.Context, info *oidc.UserInfo, subject
 		info.Subject = subject
 	}
 	// groups carries role-style claims that downstream apps map to local
-	// permissions (e.g. jellyfin-plugin-sso AdminRoles). Always emitted so
-	// apps can rely on its presence regardless of which scopes were asked.
-	groups := []string{}
+	// permissions (e.g. jellyfin-plugin-sso AdminRoles). "user" is granted
+	// to everyone so role-gated logins succeed; "admin" promotes to admin.
+	groups := []string{"user"}
 	if u.IsAdmin {
 		groups = append(groups, "admin")
 	}

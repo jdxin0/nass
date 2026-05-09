@@ -12,13 +12,15 @@
           <OidClientId>{{.OIDCClientID}}</OidClientId>
           <OidSecret>{{.OIDCClientSecret}}</OidSecret>
           <Enabled>true</Enabled>
-          <EnableAuthorization>false</EnableAuthorization>
+          <EnableAuthorization>true</EnableAuthorization>
           <EnableAllFolders>true</EnableAllFolders>
           <EnabledFolders />
           <AdminRoles>
             <string>admin</string>
           </AdminRoles>
-          <Roles />
+          <Roles>
+            <string>user</string>
+          </Roles>
           <RoleClaim>groups</RoleClaim>
           <EnableFolderRoles>false</EnableFolderRoles>
           <EnableLiveTvRoles>false</EnableLiveTvRoles>
@@ -27,7 +29,11 @@
           <LiveTvRoles />
           <LiveTvManagementRoles />
           <FolderRoleMappings />
-          <OidScopes />
+          <OidScopes>
+            <string>profile</string>
+            <string>groups</string>
+          </OidScopes>
+          <DefaultUsernameClaim>preferred_username</DefaultUsernameClaim>
           <NewPath>false</NewPath>
           <CanonicalLinks />
           <DisableHttps>false</DisableHttps>

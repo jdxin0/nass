@@ -31,7 +31,7 @@ func TestAuthCodeFlow(t *testing.T) {
 
 	users := auth.NewStore(d)
 	ctx := context.Background()
-	if _, err := users.Create(ctx, "alice", "alice@example.com", "wonderlandpw", false); err != nil {
+	if _, err := users.Create(ctx, "alice", "alice@example.com", "wonderlandpw", true); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
@@ -100,7 +100,7 @@ func TestAuthCodeFlow(t *testing.T) {
 		"client_id":     {prov.ClientID},
 		"redirect_uri":  {redirectURI},
 		"response_type": {"code"},
-		"scope":         {"openid profile email offline_access"},
+		"scope":         {"openid profile email groups offline_access"},
 		"state":         {state},
 		"nonce":         {"n-0S6_WzA2Mj"},
 	}.Encode()
@@ -214,6 +214,13 @@ func TestAuthCodeFlow(t *testing.T) {
 	}
 	if ui["email"] != "alice@example.com" {
 		t.Fatalf("email: got %v want alice@example.com", ui["email"])
+	}
+	groups, ok := ui["groups"].([]any)
+	if !ok {
+		t.Fatalf("groups: got %T %v, want array", ui["groups"], ui["groups"])
+	}
+	if !containsAll(groups, "user", "admin") {
+		t.Fatalf("groups: got %v, want user and admin", groups)
 	}
 
 	// 6. Refresh-token grant.
@@ -329,6 +336,21 @@ func getJSON(t *testing.T, url string) map[string]any {
 		t.Fatalf("decode: %v", err)
 	}
 	return m
+}
+
+func containsAll(got []any, wants ...string) bool {
+	seen := make(map[string]bool, len(got))
+	for _, v := range got {
+		if s, ok := v.(string); ok {
+			seen[s] = true
+		}
+	}
+	for _, want := range wants {
+		if !seen[want] {
+			return false
+		}
+	}
+	return true
 }
 
 func basicAuth(user, pass string) string {

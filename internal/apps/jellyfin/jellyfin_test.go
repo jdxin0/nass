@@ -32,6 +32,13 @@ func TestRenderSSOConfig_SubstitutesAllFields(t *testing.T) {
 		"<OidClientId>client-abc</OidClientId>",
 		"<OidSecret>secret-xyz</OidSecret>",
 		"<Enabled>true</Enabled>",
+		"<EnableAuthorization>true</EnableAuthorization>",
+		"<string>admin</string>",
+		"<string>user</string>",
+		"<RoleClaim>groups</RoleClaim>",
+		"<string>profile</string>",
+		"<string>groups</string>",
+		"<DefaultUsernameClaim>preferred_username</DefaultUsernameClaim>",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
