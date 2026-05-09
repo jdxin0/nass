@@ -18,6 +18,7 @@ const (
 	providerName   = "nass"
 	providerScopes = "email profile groups"
 	serviceName    = "gitea"
+	serviceUser    = "git"
 )
 
 func init() {
@@ -66,7 +67,7 @@ func createAdminUser(ctx context.Context, ic *apps.InstallContext) error {
 		"--admin",
 		"--must-change-password=false",
 	}
-	out, err := ic.Orchestrator.Exec(ctx, ic.ComposeFile, serviceName, args...)
+	out, err := ic.Orchestrator.ExecAsUser(ctx, ic.ComposeFile, serviceName, serviceUser, args...)
 	if err != nil && !isAlreadyExists(out, err) {
 		return fmt.Errorf("create gitea admin user: %w", err)
 	}
@@ -86,7 +87,7 @@ func addOIDCProvider(ctx context.Context, ic *apps.InstallContext) error {
 		"--admin-group", "admin",
 		"--skip-local-2fa",
 	}
-	out, err := ic.Orchestrator.Exec(ctx, ic.ComposeFile, serviceName, args...)
+	out, err := ic.Orchestrator.ExecAsUser(ctx, ic.ComposeFile, serviceName, serviceUser, args...)
 	if err != nil && !isAlreadyExists(out, err) {
 		return fmt.Errorf("add gitea OIDC provider: %w", err)
 	}
