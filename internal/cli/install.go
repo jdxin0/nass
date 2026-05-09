@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"text/tabwriter"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/jdxin0/nass/internal/orchestrator"
 
 	// Side-effect imports register each app's Spec in apps.reg.
+	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
@@ -101,14 +103,7 @@ func appUninstallCmd() *cobra.Command {
 				if !found {
 					return fmt.Errorf("app %q is not installed", name)
 				}
-				// Fall back to the install-time conventions when the saved
-				// settings predate the DataRoot field.
-				if dataRoot == "" && cfg.Orchestrator.DataRoot != "" {
-					dataRoot = filepath.Join(cfg.Orchestrator.DataRoot, name)
-				}
-				if composeFile == "" && cfg.Orchestrator.ComposeRoot != "" {
-					composeFile = filepath.Join(cfg.Orchestrator.ComposeRoot, name, "docker-compose.yaml")
-				}
+				composeFile, dataRoot = resolveUninstallPaths(cfg, name, composeFile, dataRoot)
 
 				if !yes {
 					fmt.Fprintf(cmd.OutOrStderr(),
@@ -141,6 +136,22 @@ func appUninstallCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&keepData, "keep-data", false, "leave the data folder on disk")
 	cmd.Flags().BoolVar(&force, "force", false, "ignore docker compose errors during teardown")
 	return cmd
+}
+
+func resolveUninstallPaths(cfg *config.Config, name, composeFile, dataRoot string) (string, string) {
+	// Fall back to install-time conventions only when the generated compose
+	// file exists. Manual `app enable` routes can have no nass-owned files,
+	// and uninstall must not delete guessed paths.
+	if composeFile == "" && cfg.Orchestrator.ComposeRoot != "" {
+		candidate := filepath.Join(cfg.Orchestrator.ComposeRoot, name, "docker-compose.yaml")
+		if _, err := os.Stat(candidate); err == nil {
+			composeFile = candidate
+		}
+	}
+	if dataRoot == "" && composeFile != "" && cfg.Orchestrator.DataRoot != "" {
+		dataRoot = filepath.Join(cfg.Orchestrator.DataRoot, name)
+	}
+	return composeFile, dataRoot
 }
 
 func appAvailableCmd() *cobra.Command {

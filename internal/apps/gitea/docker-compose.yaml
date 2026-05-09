@@ -1,0 +1,29 @@
+services:
+  gitea:
+    container_name: {{.Name}}
+    image: docker.gitea.com/gitea:1.26.1
+    restart: unless-stopped
+    environment:
+      USER_UID: 1000
+      USER_GID: 1000
+      GITEA__database__DB_TYPE: sqlite3
+      GITEA__database__PATH: /data/gitea/gitea.db
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__server__DOMAIN: {{.Subdomain}}.{{.BaseHost}}
+      GITEA__server__ROOT_URL: {{.PublicURL}}/
+      GITEA__server__HTTP_PORT: 3000
+      GITEA__server__DISABLE_SSH: "true"
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__service__ALLOW_ONLY_EXTERNAL_REGISTRATION: "true"
+      GITEA__service__REQUIRE_EXTERNAL_REGISTRATION_PASSWORD: "false"
+      GITEA__oauth2_client__ENABLE_AUTO_REGISTRATION: "true"
+      GITEA__oauth2_client__USERNAME: preferred_username
+      GITEA__oauth2_client__ACCOUNT_LINKING: auto
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:3000"
+    volumes:
+      - {{.DataRoot}}:/data
+    extra_hosts:
+      # Let gitea reach the OIDC issuer running on the host.
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"

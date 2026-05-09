@@ -27,19 +27,19 @@ type clientImpl struct {
 	devMode         bool
 }
 
-func (c *clientImpl) GetID() string                       { return c.id }
-func (c *clientImpl) RedirectURIs() []string              { return c.redirectURIs }
-func (c *clientImpl) PostLogoutRedirectURIs() []string    { return nil }
-func (c *clientImpl) ApplicationType() op.ApplicationType { return c.applicationType }
-func (c *clientImpl) AuthMethod() oidc.AuthMethod         { return c.authMethod }
-func (c *clientImpl) ResponseTypes() []oidc.ResponseType  { return c.responseTypes }
-func (c *clientImpl) GrantTypes() []oidc.GrantType        { return c.grantTypes }
-func (c *clientImpl) LoginURL(id string) string           { return "/login?authRequestID=" + id }
-func (c *clientImpl) AccessTokenType() op.AccessTokenType { return op.AccessTokenTypeBearer }
-func (c *clientImpl) IDTokenLifetime() time.Duration      { return time.Hour }
-func (c *clientImpl) DevMode() bool                       { return c.devMode }
+func (c *clientImpl) GetID() string                        { return c.id }
+func (c *clientImpl) RedirectURIs() []string               { return c.redirectURIs }
+func (c *clientImpl) PostLogoutRedirectURIs() []string     { return nil }
+func (c *clientImpl) ApplicationType() op.ApplicationType  { return c.applicationType }
+func (c *clientImpl) AuthMethod() oidc.AuthMethod          { return c.authMethod }
+func (c *clientImpl) ResponseTypes() []oidc.ResponseType   { return c.responseTypes }
+func (c *clientImpl) GrantTypes() []oidc.GrantType         { return c.grantTypes }
+func (c *clientImpl) LoginURL(id string) string            { return "/login?authRequestID=" + id }
+func (c *clientImpl) AccessTokenType() op.AccessTokenType  { return op.AccessTokenTypeBearer }
+func (c *clientImpl) IDTokenLifetime() time.Duration       { return time.Hour }
+func (c *clientImpl) DevMode() bool                        { return c.devMode }
 func (c *clientImpl) IDTokenUserinfoClaimsAssertion() bool { return true }
-func (c *clientImpl) ClockSkew() time.Duration            { return 0 }
+func (c *clientImpl) ClockSkew() time.Duration             { return 0 }
 func (c *clientImpl) RestrictAdditionalIdTokenScopes() func([]string) []string {
 	return func(s []string) []string { return s }
 }
@@ -106,15 +106,47 @@ func Provision(ctx context.Context, db *sql.DB, appName string, redirectURIs []s
 
 // RevokeClient removes the OIDC client (and any tokens) for an app.
 func RevokeClient(ctx context.Context, db *sql.DB, appName string) error {
-	res, err := db.ExecContext(ctx, `DELETE FROM oidc_clients WHERE app_name = ?`, appName)
+	found, err := deleteClient(ctx, db, appName)
 	if err != nil {
 		return err
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
+	if !found {
 		return fmt.Errorf("no client for app %q", appName)
 	}
 	return nil
+}
+
+// CleanupClient removes an app's OIDC client and issued tokens, if present.
+func CleanupClient(ctx context.Context, db *sql.DB, appName string) error {
+	_, err := deleteClient(ctx, db, appName)
+	return err
+}
+
+func deleteClient(ctx context.Context, db *sql.DB, appName string) (bool, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	var clientID string
+	row := tx.QueryRowContext(ctx, `SELECT client_id FROM oidc_clients WHERE app_name = ?`, appName)
+	if err := row.Scan(&clientID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM oidc_access_tokens WHERE client_id = ?`, clientID); err != nil {
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM oidc_refresh_tokens WHERE client_id = ?`, clientID); err != nil {
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM oidc_clients WHERE client_id = ?`, clientID); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
 }
 
 // LookupClient fetches a client row and returns an op.Client implementation.

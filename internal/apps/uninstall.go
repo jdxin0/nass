@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jdxin0/nass/internal/auth/oidc"
 	"github.com/jdxin0/nass/internal/orchestrator"
 	"github.com/jdxin0/nass/internal/proxy"
 )
@@ -31,7 +32,7 @@ type UninstallContext struct {
 
 // Uninstall tears an app down and removes its on-disk state:
 //  1. `docker compose down -v --remove-orphans` (skipped when ComposeFile empty)
-//  2. delete the apps row (cascades to oidc_clients via FK)
+//  2. delete the OIDC client and issued tokens, if present
 //  3. remove the data folder (unless KeepData)
 //  4. remove the compose file and its parent dir if empty
 //
@@ -55,8 +56,16 @@ func Uninstall(ctx context.Context, uc *UninstallContext) error {
 		}
 	}
 
-	if _, err := uc.DB.ExecContext(ctx, `DELETE FROM apps WHERE name = ?`, uc.Name); err != nil {
+	if err := oidc.CleanupClient(ctx, uc.DB, uc.Name); err != nil {
+		return fmt.Errorf("cleanup oidc client: %w", err)
+	}
+
+	res, err := uc.DB.ExecContext(ctx, `DELETE FROM apps WHERE name = ?`, uc.Name)
+	if err != nil {
 		return fmt.Errorf("delete app row: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("app %q is not installed", uc.Name)
 	}
 
 	if !uc.KeepData && uc.DataRoot != "" {

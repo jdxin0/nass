@@ -120,6 +120,7 @@ The registry pattern is Go's classic init-side-effect imports:
 ```go
 // internal/cli/install.go
 import (
+    _ "github.com/jdxin0/nass/internal/apps/gitea"
     _ "github.com/jdxin0/nass/internal/apps/immich"
     _ "github.com/jdxin0/nass/internal/apps/jellyfin"
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
@@ -170,12 +171,19 @@ The install pipeline (`internal/apps/install.go`) is fixed:
 7. **`Spec.PostUp(ctx, ic)`** — runs *after* containers are up. This is
    where apps drive their first-boot setup: Nextcloud installs the `user_oidc`
    plugin, Jellyfin runs the startup wizard and sideloads the SSO plugin,
-   Immich does admin signup, qBittorrent patches `qBittorrent.conf` for proxy
-   compatibility.
+   Immich does admin signup, Gitea adds the nass OIDC source, qBittorrent
+   patches `qBittorrent.conf` for proxy compatibility.
 
 The pipeline is straight-line and not idempotent yet. Re-running
 `nass app install` on an already-installed app fails (the OIDC client already
 exists). Fixing that is on the backlog.
+
+`nass app uninstall <name>` is the destructive cleanup path: it runs
+`docker compose down -v --remove-orphans`, removes any OIDC client and issued
+tokens for the app, deletes the `apps` row, removes the data folder unless
+`--keep-data` is set, and removes the generated compose file. Legacy path
+fallbacks are only used when the default generated compose file exists, so
+manual `app enable` routes do not cause guessed data paths to be deleted.
 
 ### `orchestrator/` — docker compose shell-out
 
@@ -242,6 +250,17 @@ short contention doesn't blow up.
   `"` or `\` can't break the file.
 - PostUp polls `/api/server-info/config` until `isInitialized` appears, then
   POSTs `/api/auth/admin-sign-up` if not already initialised.
+
+### Gitea (`apps/gitea/`)
+
+- BackendPort `13000`, native OIDC via Gitea's built-in OAuth2/OpenID
+  Connect auth source support.
+- Compose uses SQLite under `/data`, locks the installer, disables SSH clone
+  URLs for now, and enables OAuth2 auto-registration with
+  `preferred_username`.
+- PostUp creates a local `admin` user, then runs
+  `gitea admin auth add-oauth` to register nass with `groups` as the role
+  claim and `admin` as the administrator group.
 
 ### qBittorrent (`apps/qbittorrent/`)
 

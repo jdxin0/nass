@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jdxin0/nass/internal/apps"
+	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
@@ -177,6 +178,50 @@ func TestImmichComposeRenders(t *testing.T) {
 		"./immich-config.json:/immich-config.json",
 		"DB_HOSTNAME: immich_postgres",
 		"REDIS_HOSTNAME: immich_redis",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestGiteaComposeRenders(t *testing.T) {
+	s, ok := apps.Get("gitea")
+	if !ok {
+		t.Fatalf("gitea not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("gitea should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("gitea uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/gitea",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://gitea.nass.local/user/oauth2/nass/callback" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: docker.gitea.com/gitea:",
+		"127.0.0.1:13000:3000",
+		"/srv/nass/data/gitea:/data",
+		"GITEA__server__DOMAIN: gitea.nass.local",
+		"GITEA__server__ROOT_URL: https://gitea.nass.local/",
+		"GITEA__oauth2_client__ENABLE_AUTO_REGISTRATION: \"true\"",
+		"GITEA__oauth2_client__USERNAME: preferred_username",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {

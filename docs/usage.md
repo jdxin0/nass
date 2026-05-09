@@ -92,6 +92,7 @@ socket is up to you (group membership, rootless docker, etc.).
 sudo nass app install nextcloud
 sudo nass app install jellyfin
 sudo nass app install immich
+sudo nass app install gitea
 sudo nass app install qbittorrent
 ```
 
@@ -147,7 +148,28 @@ nass app disable nextcloud
 nass app enable nextcloud --subdomain nextcloud --backend http://127.0.0.1:18080
 ```
 
-To actually stop the containers:
+To stop containers and remove an installed app from nass entirely, use
+`uninstall` instead.
+
+### Uninstalling
+
+```sh
+sudo nass app uninstall nextcloud --yes
+```
+
+This runs `docker compose down -v --remove-orphans`, removes the app row,
+removes its OIDC client and issued tokens, deletes the managed data folder,
+and removes the generated compose file.
+
+Useful flags:
+
+| Flag | Meaning |
+| --- | --- |
+| `--keep-data` | Leave the app data folder on disk. |
+| `--force` | Continue DB/file cleanup even if `docker compose down` fails. |
+| `--yes` | Required confirmation for destructive uninstall. |
+
+To only stop containers without removing nass state:
 
 ```sh
 sudo docker compose -f /srv/nass/apps/nextcloud/docker-compose.yaml down
@@ -155,20 +177,16 @@ sudo docker compose -f /srv/nass/apps/nextcloud/docker-compose.yaml down
 
 ### Re-installing
 
-There's no first-class "reinstall" today — re-running `nass app install` on
-an already-installed app fails because the OIDC client row already exists.
-To fully redo an install:
+Re-running `nass app install` on an already-installed app fails because the
+OIDC client row already exists. Uninstall first, then install again:
 
 ```sh
-sudo docker compose -f /srv/nass/apps/<name>/docker-compose.yaml down -v
-sudo rm -rf /srv/nass/data/<name> /srv/nass/apps/<name>
-sudo nass oidc-client rm <name>
-nass app disable <name>     # if it was previously enabled
+sudo nass app uninstall <name> --yes
 sudo nass app install <name>
 ```
 
-⚠ The `down -v` and `rm -rf` blow away data. Skip them if you only want to
-rebuild the OIDC client / compose file.
+Use `--keep-data` when you want to preserve the data folder and only rebuild
+the compose file / OIDC client.
 
 ## Managing users
 
@@ -277,7 +295,7 @@ and every OIDC-using app will need its client re-provisioned.
 nass app available
 
 # Stop everything but keep data:
-for app in nextcloud jellyfin immich qbittorrent; do
+for app in nextcloud jellyfin immich gitea qbittorrent; do
   sudo docker compose -f /srv/nass/apps/$app/docker-compose.yaml stop
 done
 

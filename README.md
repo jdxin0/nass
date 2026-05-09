@@ -12,7 +12,7 @@ scripts** with one process that:
 - Shows a portal dashboard with each app's tile, status, and link.
 
 Apps currently bundled in the binary: **Nextcloud**, **Jellyfin**, **Immich**,
-**qBittorrent**.
+**Gitea**, **qBittorrent**.
 
 ```
                          ┌──────────── nass ────────────┐
@@ -28,7 +28,7 @@ Apps currently bundled in the binary: **Nextcloud**, **Jellyfin**, **Immich**,
 
 ## Status
 
-Early. The binary works end-to-end on a single host with the four apps above,
+Early. The binary works end-to-end on a single host with the bundled apps above,
 but there are sharp edges (no idempotent re-install, no CSRF token — relying on
 SameSite + Origin checks, no portal user-management UI yet). See
 [docs/design.md](docs/design.md) for the architecture and
@@ -76,6 +76,7 @@ sudo nass serve
 sudo nass app install nextcloud
 sudo nass app install jellyfin
 sudo nass app install immich
+sudo nass app install gitea
 sudo nass app install qbittorrent
 ```
 
@@ -90,6 +91,7 @@ should be reachable, and the dashboard at `https://example.com` shows the tiles.
 | `nass serve` | Run the long-lived process: TLS proxy + OIDC IdP + portal. |
 | `nass app available` | List apps registered in the binary. |
 | `nass app install <name>` | Full install: provision OIDC, render compose, `docker compose up -d`, run app's PostUp setup. |
+| `nass app uninstall <name>` | Stop and remove an installed app, its OIDC client, and its managed files. |
 | `nass app list` | List apps the proxy is currently serving. |
 | `nass app enable <name>` | Manually configure a proxy route (for an app you set up by hand). |
 | `nass app disable <name>` | Stop serving an app at the proxy (does not touch its containers). |
@@ -135,6 +137,7 @@ cmd/nass/             # binary entry point
 internal/
   apps/               # app registry + install pipeline
     nextcloud/        # one package per app
+    gitea/
     jellyfin/
     immich/
     qbittorrent/
