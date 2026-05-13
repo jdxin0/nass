@@ -12,11 +12,13 @@
 {{end}}
 <div class="grid">
   {{range .Apps}}
-    <a class="card" href="{{.URL}}" target="_blank" rel="noopener">
-      <div class="icon">{{if .Icon}}{{.Icon}}{{else}}📦{{end}}</div>
-      <div class="title">{{.DisplayName}}</div>
+    <a class="card" href="{{.URL}}" target="_blank" rel="noopener" title="{{.State}}">
+      <div class="row">
+        <div class="icon">{{if .Icon}}{{.Icon}}{{else}}📦{{end}}</div>
+        <div class="title">{{.DisplayName}}</div>
+        <span class="dot {{.State}}" aria-label="{{.State}}"></span>
+      </div>
       <div class="desc">{{.Description}}</div>
-      <div style="margin-top:.5rem"><span class="badge {{.State}}">{{.State}}</span></div>
     </a>
   {{end}}
 </div>
