@@ -189,6 +189,13 @@ func TestAuthCodeFlow(t *testing.T) {
 	if toks.AccessToken == "" || toks.IDToken == "" || toks.RefreshToken == "" {
 		t.Fatalf("missing tokens: %+v", toks)
 	}
+	idClaims := decodeJWTClaims(t, toks.IDToken)
+	if idClaims["preferred_username"] != "alice" {
+		t.Fatalf("id token preferred_username: got %v want alice; claims=%+v", idClaims["preferred_username"], idClaims)
+	}
+	if idClaims["email"] != "alice@example.com" {
+		t.Fatalf("id token email: got %v want alice@example.com; claims=%+v", idClaims["email"], idClaims)
+	}
 
 	// 5. Userinfo with the access token.
 	uiReq, _ := http.NewRequest("GET", ts.URL+"/userinfo", nil)
@@ -355,4 +362,21 @@ func containsAll(got []any, wants ...string) bool {
 
 func basicAuth(user, pass string) string {
 	return base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+}
+
+func decodeJWTClaims(t *testing.T, raw string) map[string]any {
+	t.Helper()
+	parts := strings.Split(raw, ".")
+	if len(parts) != 3 {
+		t.Fatalf("jwt has %d parts, want 3", len(parts))
+	}
+	body, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("decode jwt payload: %v", err)
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(body, &claims); err != nil {
+		t.Fatalf("unmarshal jwt claims: %v", err)
+	}
+	return claims
 }

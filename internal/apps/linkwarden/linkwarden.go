@@ -13,7 +13,7 @@ import (
 //go:embed docker-compose.yaml
 var composeTemplate []byte
 
-const providerName = "keycloak"
+const providerName = "authelia"
 
 func init() {
 	apps.Register(apps.Spec{

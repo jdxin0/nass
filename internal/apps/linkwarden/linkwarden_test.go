@@ -6,7 +6,7 @@ import (
 	"github.com/jdxin0/nass/internal/apps"
 )
 
-func TestRedirectURIsUsesLinkwardenKeycloakCallback(t *testing.T) {
+func TestRedirectURIsUsesLinkwardenAutheliaCallback(t *testing.T) {
 	ic := &apps.InstallContext{
 		Subdomain:    "links",
 		BaseHost:     "nass.local",
@@ -15,7 +15,7 @@ func TestRedirectURIsUsesLinkwardenKeycloakCallback(t *testing.T) {
 	}
 
 	got := redirectURIs(ic)
-	want := "https://links.nass.local:8443/api/v1/auth/callback/keycloak"
+	want := "https://links.nass.local:8443/api/v1/auth/callback/authelia"
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("redirect URIs: got %v want [%s]", got, want)
 	}

@@ -291,15 +291,17 @@ short contention doesn't blow up.
 
 ### Linkwarden (`apps/linkwarden/`)
 
-- BackendPort `13001`, native OIDC via Linkwarden's Keycloak provider.
+- BackendPort `13001`, native OIDC via Linkwarden's Authelia-compatible
+  well-known provider.
 - Redirect URI:
-  `https://linkwarden.<base_host>/api/v1/auth/callback/keycloak`.
+  `https://linkwarden.<base_host>/api/v1/auth/callback/authelia`.
 - Compose runs Linkwarden, Postgres, and Meilisearch. `NEXTAUTH_URL` includes
   Linkwarden's required `/api/v1/auth` suffix; `BASE_URL` points at the public
   app root.
-- OIDC is wired with `NEXT_PUBLIC_KEYCLOAK_ENABLED`, `KEYCLOAK_ISSUER`,
-  `KEYCLOAK_CLIENT_ID`, and `KEYCLOAK_CLIENT_SECRET`. Local credential login
-  and self-registration are disabled by default.
+- OIDC is wired with `NEXT_PUBLIC_AUTHELIA_ENABLED`,
+  `AUTHELIA_WELLKNOWN_URL`, `AUTHELIA_CLIENT_ID`, and
+  `AUTHELIA_CLIENT_SECRET`. Local credential login and self-registration are
+  disabled by default.
 - PostUp only waits for the web service because all first-boot configuration is
   supplied through environment variables.
 

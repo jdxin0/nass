@@ -347,7 +347,7 @@ func TestLinkwardenComposeRenders(t *testing.T) {
 		OIDCClientSecret: "sec",
 		OIDCIssuer:       "https://auth.nass.local",
 	}
-	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://linkwarden.nass.local/api/v1/auth/callback/keycloak" {
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://linkwarden.nass.local/api/v1/auth/callback/authelia" {
 		t.Fatalf("redirect URIs: got %v", got)
 	}
 	dir := t.TempDir()
@@ -369,11 +369,10 @@ func TestLinkwardenComposeRenders(t *testing.T) {
 		"DATABASE_URL: postgresql://postgres:",
 		"@postgres:5432/postgres",
 		"MEILI_HOST: http://meilisearch:7700",
-		"NEXT_PUBLIC_KEYCLOAK_ENABLED: \"true\"",
-		"KEYCLOAK_CUSTOM_NAME: nass",
-		"KEYCLOAK_ISSUER: https://auth.nass.local",
-		"KEYCLOAK_CLIENT_ID: cid",
-		"KEYCLOAK_CLIENT_SECRET: sec",
+		"NEXT_PUBLIC_AUTHELIA_ENABLED: \"true\"",
+		"AUTHELIA_WELLKNOWN_URL: https://auth.nass.local/.well-known/openid-configuration",
+		"AUTHELIA_CLIENT_ID: cid",
+		"AUTHELIA_CLIENT_SECRET: sec",
 		"NEXT_PUBLIC_CREDENTIALS_ENABLED: \"false\"",
 		"auth.nass.local:host-gateway",
 	} {

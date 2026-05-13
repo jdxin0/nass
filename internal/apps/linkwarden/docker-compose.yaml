@@ -12,11 +12,10 @@ services:
       STORAGE_FOLDER: /data/data
       NEXT_PUBLIC_DISABLE_REGISTRATION: "true"
       NEXT_PUBLIC_CREDENTIALS_ENABLED: "false"
-      NEXT_PUBLIC_KEYCLOAK_ENABLED: "true"
-      KEYCLOAK_CUSTOM_NAME: nass
-      KEYCLOAK_ISSUER: {{.OIDCIssuer}}
-      KEYCLOAK_CLIENT_ID: {{.OIDCClientID}}
-      KEYCLOAK_CLIENT_SECRET: {{.OIDCClientSecret}}
+      NEXT_PUBLIC_AUTHELIA_ENABLED: "true"
+      AUTHELIA_WELLKNOWN_URL: {{.OIDCDiscoveryURL}}
+      AUTHELIA_CLIENT_ID: {{.OIDCClientID}}
+      AUTHELIA_CLIENT_SECRET: {{.OIDCClientSecret}}
       MEILI_HOST: http://meilisearch:7700
       MEILI_MASTER_KEY: {{.AdminPassword}}
     ports:
