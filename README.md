@@ -25,6 +25,7 @@ These apps are bundled in the binary and can be installed with
 | qBittorrent | `qbittorrent` | Torrent client | Portal gate |
 | Blinko | `blinko` | AI note-taking | Native OIDC |
 | Linkwarden | `linkwarden` | Bookmark and web archive manager | Native OIDC |
+| Firefly III | `firefly` | Personal finance manager | Portal gate (remote user) |
 
 ```
                          ┌──────────── nass ────────────┐
@@ -92,6 +93,7 @@ sudo nass app install gitea
 sudo nass app install qbittorrent
 sudo nass app install blinko
 sudo nass app install linkwarden
+sudo nass app install firefly
 ```
 
 Now `https://nextcloud.example.com`, `https://jellyfin.example.com`, etc.
@@ -152,6 +154,7 @@ cmd/nass/             # binary entry point
 internal/
   apps/               # app registry + install pipeline
     blinko/
+    firefly/
     nextcloud/        # one package per app
     gitea/
     jellyfin/

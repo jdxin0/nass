@@ -11,6 +11,7 @@ import (
 
 	"github.com/jdxin0/nass/internal/apps"
 	_ "github.com/jdxin0/nass/internal/apps/blinko"
+	_ "github.com/jdxin0/nass/internal/apps/firefly"
 	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
@@ -414,6 +415,50 @@ func TestJellyfinComposeRenders(t *testing.T) {
 		"/srv/nass/data/jellyfin/cache:/cache",
 		"JELLYFIN_PublishedServerUrl: https://jellyfin.nass.local",
 		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestFireflyComposeRenders(t *testing.T) {
+	s, ok := apps.Get("firefly")
+	if !ok {
+		t.Fatalf("firefly not registered")
+	}
+	if s.NeedsOIDC {
+		t.Fatalf("firefly has no native OIDC; expected NeedsOIDC=false: %+v", s)
+	}
+	if !s.OIDCGate {
+		t.Fatalf("firefly should be portal-gated (remote_user_guard): %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:      "/srv/nass/data/firefly",
+		AdminPassword: "abcd1234",
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: fireflyiii/core:",
+		"image: postgres:16-alpine",
+		"127.0.0.1:18030:8080",
+		"/srv/nass/data/firefly/upload:/var/www/html/storage/upload",
+		"/srv/nass/data/firefly/postgres:/var/lib/postgresql/data",
+		"/srv/nass/data/firefly/firefly.env",
+		"APP_URL: https://firefly.nass.local",
+		"DB_HOST: firefly_postgres",
+		"DB_PASSWORD: abcd1234",
+		"AUTHENTICATION_GUARD: remote_user_guard",
+		"AUTHENTICATION_GUARD_HEADER: HTTP_REMOTE_USER",
+		"AUTHENTICATION_GUARD_EMAIL: HTTP_REMOTE_EMAIL",
+		`TRUSTED_PROXIES: "**"`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("missing %q in:\n%s", want, body)

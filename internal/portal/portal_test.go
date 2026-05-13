@@ -437,3 +437,88 @@ func TestGateAllowsAuthenticated(t *testing.T) {
 		t.Fatalf("expected 200/secret, got %d/%s", resp.StatusCode, body)
 	}
 }
+
+func TestGateInjectsRemoteUserHeaders(t *testing.T) {
+	f := newFixture(t)
+
+	jar, _ := cookiejar.New(nil)
+	hc := &http.Client{Jar: jar}
+	if _, err := hc.PostForm(f.server.URL+"/portal/login",
+		url.Values{"username": {"alice"}, "password": {"alicepassword"}, "next": {"/"}}); err != nil {
+		t.Fatal(err)
+	}
+	pURL, _ := url.Parse(f.server.URL)
+	cookies := jar.Cookies(pURL)
+
+	var seen http.Header
+	gate := portal.NewGate(f.sessions, f.server.URL)
+	gated := gate.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+		io.WriteString(w, "ok")
+	}))
+	gateSrv := httptest.NewServer(gated)
+	defer gateSrv.Close()
+
+	gURL, _ := url.Parse(gateSrv.URL)
+	jar.SetCookies(gURL, cookies)
+
+	// Inject a spoofed Remote-User from the client — the gate must drop it
+	// and replace with the session-derived identity.
+	req, _ := http.NewRequest("GET", gateSrv.URL+"/", nil)
+	req.Header.Set("Remote-User", "evil")
+	req.Header.Set("Remote-Email", "evil@example.com")
+	for _, c := range jar.Cookies(gURL) {
+		req.AddCookie(c)
+	}
+	resp, err := hc.Do(req)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status: %d", resp.StatusCode)
+	}
+	if got := seen.Get("Remote-User"); got != "alice" {
+		t.Errorf("Remote-User: got %q want %q", got, "alice")
+	}
+	if got := seen.Get("Remote-Email"); got != "alice@example.com" {
+		t.Errorf("Remote-Email: got %q want %q", got, "alice@example.com")
+	}
+	if got := seen.Get("Remote-Name"); got != "alice" {
+		t.Errorf("Remote-Name: got %q want %q", got, "alice")
+	}
+	if got := seen.Get("Remote-Groups"); got != "" {
+		t.Errorf("Remote-Groups for non-admin: got %q want empty", got)
+	}
+}
+
+func TestGateStripsRemoteUserWhenUnauthenticated(t *testing.T) {
+	f := newFixture(t)
+
+	called := false
+	gate := portal.NewGate(f.sessions, f.server.URL)
+	gated := gate.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	gateSrv := httptest.NewServer(gated)
+	defer gateSrv.Close()
+
+	hc := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	req, _ := http.NewRequest("GET", gateSrv.URL+"/", nil)
+	req.Header.Set("Remote-User", "evil")
+	resp, err := hc.Do(req)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status: %d", resp.StatusCode)
+	}
+	if called {
+		t.Fatalf("backend handler must not see spoofed Remote-User when unauthenticated")
+	}
+}

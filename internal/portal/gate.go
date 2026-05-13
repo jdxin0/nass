@@ -21,6 +21,13 @@ func NewGate(ss *SessionStore, portalURL string) *Gate {
 
 func (g *Gate) Wrap(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Always drop any caller-supplied identity headers so a client can't
+		// smuggle them past us — we (and only we) set them from the session.
+		r.Header.Del("Remote-User")
+		r.Header.Del("Remote-Email")
+		r.Header.Del("Remote-Name")
+		r.Header.Del("Remote-Groups")
+
 		sess, err := g.Sessions.Lookup(r.Context(), r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -33,6 +40,16 @@ func (g *Gate) Wrap(h http.Handler) http.Handler {
 			loginURL := g.PortalURL + "/portal/login?next=" + url.QueryEscape(next)
 			http.Redirect(w, r, loginURL, http.StatusFound)
 			return
+		}
+		// Header-based auth for gated apps that read REMOTE_USER (e.g.
+		// Firefly III's remote_user_guard). Harmless for apps that ignore it.
+		r.Header.Set("Remote-User", sess.User.Username)
+		if sess.User.Email != "" {
+			r.Header.Set("Remote-Email", sess.User.Email)
+		}
+		r.Header.Set("Remote-Name", sess.User.Username)
+		if sess.User.IsAdmin {
+			r.Header.Set("Remote-Groups", "admin")
 		}
 		h.ServeHTTP(w, r)
 	})

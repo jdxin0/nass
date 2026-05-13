@@ -127,6 +127,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
     _ "github.com/jdxin0/nass/internal/apps/qbittorrent"
     _ "github.com/jdxin0/nass/internal/apps/blinko"
+    _ "github.com/jdxin0/nass/internal/apps/firefly"
 )
 ```
 
@@ -304,6 +305,20 @@ short contention doesn't blow up.
   disabled by default.
 - PostUp only waits for the web service because all first-boot configuration is
   supplied through environment variables.
+
+### Firefly III (`apps/firefly/`)
+
+- BackendPort `18030`. **No** native OIDC: gated by `OIDCGate=true`, and the
+  portal `Gate` injects `Remote-User` / `Remote-Email` headers on every
+  authenticated request.
+- Firefly is configured with `AUTHENTICATION_GUARD=remote_user_guard`,
+  `AUTHENTICATION_GUARD_HEADER=HTTP_REMOTE_USER`,
+  `AUTHENTICATION_GUARD_EMAIL=HTTP_REMOTE_EMAIL`, so it trusts those headers
+  and auto-provisions a user on first request.
+- Compose runs Firefly plus Postgres. `APP_KEY` and `STATIC_CRON_TOKEN` are
+  generated once in PreUp and written to `{DataRoot}/firefly.env` (loaded via
+  `env_file`), so they stay stable across container recreation and the
+  Laravel-encrypted DB rows remain decryptable.
 
 ## Request flow examples
 

@@ -1,0 +1,38 @@
+services:
+  firefly:
+    container_name: {{.Name}}
+    image: fireflyiii/core:latest
+    restart: unless-stopped
+    env_file:
+      - {{.DataRoot}}/firefly.env
+    environment:
+      APP_URL: {{.PublicURL}}
+      TZ: UTC
+      TRUSTED_PROXIES: "**"
+      DB_CONNECTION: pgsql
+      DB_HOST: {{.Name}}_postgres
+      DB_PORT: "5432"
+      DB_DATABASE: firefly
+      DB_USERNAME: firefly
+      DB_PASSWORD: {{.AdminPassword}}
+      AUTHENTICATION_GUARD: remote_user_guard
+      AUTHENTICATION_GUARD_HEADER: HTTP_REMOTE_USER
+      AUTHENTICATION_GUARD_EMAIL: HTTP_REMOTE_EMAIL
+      SITE_OWNER: admin@{{.BaseHost}}
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:8080"
+    volumes:
+      - {{.DataRoot}}/upload:/var/www/html/storage/upload
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: {{.Name}}_postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: firefly
+      POSTGRES_PASSWORD: {{.AdminPassword}}
+      POSTGRES_DB: firefly
+    volumes:
+      - {{.DataRoot}}/postgres:/var/lib/postgresql/data
