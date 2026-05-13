@@ -35,6 +35,9 @@ func TestRenderConfig_PopulatesOIDCAndExternalDomain(t *testing.T) {
 	if got.OAuth.IssuerURL != "https://auth.nass.local/.well-known/openid-configuration" {
 		t.Errorf("IssuerURL: %q", got.OAuth.IssuerURL)
 	}
+	if got.OAuth.SigningAlgorithm != "RS256" {
+		t.Errorf("SigningAlgorithm: got %q want RS256", got.OAuth.SigningAlgorithm)
+	}
 	if !got.OAuth.Enabled {
 		t.Errorf("OAuth.Enabled should be true")
 	}

@@ -26,22 +26,22 @@ import (
 var composeTemplate []byte
 
 const (
-	adminEmail  = "admin@admin"
-	adminName   = "admin"
+	adminEmail     = "admin@admin"
+	adminName      = "admin"
 	configBasename = "immich-config.json"
 )
 
 func init() {
 	apps.Register(apps.Spec{
-		Name:            "immich",
-		DisplayName:     "Immich",
-		Description:     "Photos and videos",
-		Icon:            "📷",
-		Subdomain:         "immich",
-		BackendPort:       18283,
-		PreserveHost:      true,
-		NeedsOIDC:         true,
-		OIDCGate:          false,
+		Name:         "immich",
+		DisplayName:  "Immich",
+		Description:  "Photos and videos",
+		Icon:         "📷",
+		Subdomain:    "immich",
+		BackendPort:  18283,
+		PreserveHost: true,
+		NeedsOIDC:    true,
+		OIDCGate:     false,
 		OIDCRedirectURIs: func(ic *apps.InstallContext) []string {
 			return []string{ic.PublicURL() + "/auth/login"}
 		},
@@ -180,7 +180,7 @@ func renderConfig(ic *apps.InstallContext) ([]byte, error) {
 			MobileRedirectURI:       "",
 			ProfileSigningAlgorithm: "none",
 			Scope:                   "openid email profile",
-			SigningAlgorithm:        "ES256",
+			SigningAlgorithm:        "RS256",
 			StorageLabelClaim:       "preferred_username",
 			StorageQuotaClaim:       "immich_quota",
 		},
