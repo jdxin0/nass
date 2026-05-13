@@ -10,7 +10,12 @@
 {{if .Flash}}<div class="ok">{{.Flash}}</div>{{end}}
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 
-<section class="panel">
+<nav class="tabs" role="tablist">
+  <a class="tab-link tab-apps" href="#apps">Apps</a>
+  <a class="tab-link tab-users" href="#users">Users</a>
+</nav>
+
+<section id="apps" class="tab-panel panel">
 <h2>Apps</h2>
 {{if not .Apps}}
   <p class="muted">No apps in the registry.</p>
@@ -72,11 +77,9 @@
 </tbody>
 </table>
 {{end}}
-</section>
 
 {{if .Jobs}}
-<section class="panel">
-<h2>Recent operations</h2>
+<h2 style="margin-top:1.5rem">Recent operations</h2>
 <table>
 <thead><tr><th>App</th><th>Action</th><th>Status</th><th>Message</th></tr></thead>
 <tbody>
@@ -90,14 +93,14 @@
 {{end}}
 </tbody>
 </table>
-</section>
 {{end}}
+</section>
 
-<section class="panel">
+<section id="users" class="tab-panel panel">
   <h2>Users</h2>
   <ul class="user-list">
   {{range .Users}}
-    <li class="user-row">
+    <li class="user-row" id="user-{{.ID}}">
       <div class="user-ident">
         <div class="user-avatar">{{printf "%.1s" .Username}}</div>
         <div class="cell-stack">
@@ -134,6 +137,7 @@
   </ul>
 
   <form class="user-create" method="POST" action="/portal/admin/users">
+    <h3 class="user-create-title">Add user</h3>
     <div class="user-create-grid">
       <label>Username<input type="text" name="username" required autocomplete="off"></label>
       <label>Email<input type="email" name="email" autocomplete="off"></label>

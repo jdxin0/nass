@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jdxin0/nass/internal/apps"
@@ -518,6 +519,13 @@ func redirectAdmin(w http.ResponseWriter, r *http.Request, flash, errMsg string)
 	target := "/portal/admin"
 	if len(v) > 0 {
 		target += "?" + v.Encode()
+	}
+	// Preserve the tab the action came from so the redirect lands the user
+	// back on the same panel. Browsers carry the fragment through 303s.
+	if strings.Contains(r.URL.Path, "/users") {
+		target += "#users"
+	} else if strings.Contains(r.URL.Path, "/apps") {
+		target += "#apps"
 	}
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
