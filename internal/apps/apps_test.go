@@ -16,6 +16,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
 	_ "github.com/jdxin0/nass/internal/apps/linkwarden"
+	_ "github.com/jdxin0/nass/internal/apps/miniflux"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
 	_ "github.com/jdxin0/nass/internal/apps/paperless"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
@@ -377,6 +378,60 @@ func TestLinkwardenComposeRenders(t *testing.T) {
 		"AUTHELIA_CLIENT_ID: cid",
 		"AUTHELIA_CLIENT_SECRET: sec",
 		"NEXT_PUBLIC_CREDENTIALS_ENABLED: \"false\"",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestMinifluxComposeRenders(t *testing.T) {
+	s, ok := apps.Get("miniflux")
+	if !ok {
+		t.Fatalf("miniflux not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("miniflux should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("miniflux uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/miniflux",
+		AdminPassword:    "abcd1234",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://miniflux.nass.local/oauth2/oidc/callback" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: miniflux/miniflux:",
+		"image: postgres:16-alpine",
+		"127.0.0.1:18070:8080",
+		"/srv/nass/data/miniflux/postgres:/var/lib/postgresql/data",
+		"DATABASE_URL: postgres://miniflux:abcd1234@postgres/miniflux?sslmode=disable",
+		"BASE_URL: https://miniflux.nass.local",
+		`DISABLE_LOCAL_AUTH: "1"`,
+		`OAUTH2_USER_CREATION: "1"`,
+		"OAUTH2_PROVIDER: oidc",
+		"OAUTH2_CLIENT_ID: cid",
+		"OAUTH2_CLIENT_SECRET: sec",
+		"OAUTH2_REDIRECT_URL: https://miniflux.nass.local/oauth2/oidc/callback",
+		"OAUTH2_OIDC_DISCOVERY_ENDPOINT: https://auth.nass.local",
+		"OAUTH2_OIDC_PROVIDER_NAME: nass",
+		"ADMIN_USERNAME: admin",
+		"ADMIN_PASSWORD: abcd1234",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {

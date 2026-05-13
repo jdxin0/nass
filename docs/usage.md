@@ -99,6 +99,7 @@ sudo nass app install linkwarden
 sudo nass app install firefly
 sudo nass app install paperless
 sudo nass app install vaultwarden
+sudo nass app install miniflux
 ```
 
 Each install:
@@ -307,7 +308,7 @@ and every OIDC-using app will need its client re-provisioned.
 nass app available
 
 # Stop everything but keep data:
-for app in nextcloud jellyfin immich gitea qbittorrent blinko linkwarden firefly paperless vaultwarden; do
+for app in nextcloud jellyfin immich gitea qbittorrent blinko linkwarden firefly paperless vaultwarden miniflux; do
   sudo docker compose -f /srv/nass/apps/$app/docker-compose.yaml stop
 done
 

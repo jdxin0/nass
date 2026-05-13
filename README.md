@@ -28,6 +28,7 @@ These apps are bundled in the binary and can be installed with
 | Firefly III | `firefly` | Personal finance manager | Portal gate (remote user) |
 | Paperless-ngx | `paperless` | Document management for scanned paper | Native OIDC |
 | Vaultwarden | `vaultwarden` | Bitwarden-compatible password manager | Native OIDC |
+| Miniflux | `miniflux` | Minimalist RSS reader | Native OIDC |
 
 ```
                          ┌──────────── nass ────────────┐
@@ -98,6 +99,7 @@ sudo nass app install linkwarden
 sudo nass app install firefly
 sudo nass app install paperless
 sudo nass app install vaultwarden
+sudo nass app install miniflux
 ```
 
 Now `https://nextcloud.example.com`, `https://jellyfin.example.com`, etc.
@@ -164,6 +166,7 @@ internal/
     jellyfin/
     linkwarden/
     immich/
+    miniflux/
     paperless/
     qbittorrent/
     vaultwarden/

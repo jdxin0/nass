@@ -124,6 +124,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/immich"
     _ "github.com/jdxin0/nass/internal/apps/jellyfin"
     _ "github.com/jdxin0/nass/internal/apps/linkwarden"
+    _ "github.com/jdxin0/nass/internal/apps/miniflux"
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
     _ "github.com/jdxin0/nass/internal/apps/qbittorrent"
     _ "github.com/jdxin0/nass/internal/apps/blinko"
@@ -344,6 +345,17 @@ short contention doesn't blow up.
 - `SSO_ONLY=true` disables the master-password login form; users still set a
   master password on first sign-in for client-side vault encryption.
   `ADMIN_TOKEN` (the generated admin password) gates the `/admin` panel.
+
+### Miniflux (`apps/miniflux/`)
+
+- BackendPort `18070`, native OIDC via Miniflux's built-in `oidc` provider.
+- Redirect URI: `https://miniflux.<base_host>/oauth2/oidc/callback`.
+- Compose runs Miniflux plus Postgres. Bootstrap admin is seeded with
+  `CREATE_ADMIN=1` + `ADMIN_USERNAME`/`ADMIN_PASSWORD`; `DISABLE_LOCAL_AUTH=1`
+  hides the local login form so OIDC is the only public path in.
+  `OAUTH2_USER_CREATION=1` auto-creates a Miniflux user (non-admin) the first
+  time someone signs in via the IdP.
+- PostUp only waits for `/healthcheck`; everything else is env-driven.
 
 ### Firefly III (`apps/firefly/`)
 

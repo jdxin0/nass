@@ -1,0 +1,48 @@
+services:
+  miniflux:
+    container_name: {{.Name}}
+    image: miniflux/miniflux:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://miniflux:{{.AdminPassword}}@postgres/miniflux?sslmode=disable
+      RUN_MIGRATIONS: "1"
+      CREATE_ADMIN: "1"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: {{.AdminPassword}}
+      BASE_URL: {{.PublicURL}}
+      # Disable the local login form. Once seeded, the admin user can only be
+      # used via the CLI; day-to-day access is via OIDC.
+      DISABLE_LOCAL_AUTH: "1"
+      # Auto-create a Miniflux user the first time someone logs in via OIDC.
+      # The IdP is the gate, so any successful OIDC login is trusted.
+      OAUTH2_USER_CREATION: "1"
+      OAUTH2_PROVIDER: oidc
+      OAUTH2_CLIENT_ID: {{.OIDCClientID}}
+      OAUTH2_CLIENT_SECRET: {{.OIDCClientSecret}}
+      OAUTH2_REDIRECT_URL: {{.PublicURL}}/oauth2/oidc/callback
+      OAUTH2_OIDC_DISCOVERY_ENDPOINT: {{.OIDCIssuer}}
+      OAUTH2_OIDC_PROVIDER_NAME: nass
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:8080"
+    extra_hosts:
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"
+
+  postgres:
+    container_name: {{.Name}}_postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: miniflux
+      POSTGRES_PASSWORD: {{.AdminPassword}}
+      POSTGRES_DB: miniflux
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miniflux -d miniflux"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - {{.DataRoot}}/postgres:/var/lib/postgresql/data
