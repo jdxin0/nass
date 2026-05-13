@@ -47,9 +47,10 @@ type Portal struct {
 }
 
 type Orchestrator struct {
-	DataRoot      string `toml:"data_root"`
-	ComposeRoot   string `toml:"compose_root"`
-	DockerCompose string `toml:"docker_compose"`
+	DataRoot         string `toml:"data_root"`
+	ComposeRoot      string `toml:"compose_root"`
+	DockerCompose    string `toml:"docker_compose"`
+	BackendPortRange string `toml:"backend_port_range"`
 }
 
 func Default() *Config {
@@ -68,7 +69,8 @@ func Default() *Config {
 		},
 		DB: DB{Path: "nass.db"},
 		Orchestrator: Orchestrator{
-			DockerCompose: "docker compose",
+			DockerCompose:    "docker compose",
+			BackendPortRange: "20000-29999",
 		},
 	}
 }

@@ -23,6 +23,7 @@ type Result struct {
 	AppName          string
 	ComposeFile      string
 	AdminPassword    string
+	BackendPort      int
 	OIDCClientID     string
 	OIDCClientSecret string
 }
@@ -47,6 +48,11 @@ func Install(ctx context.Context, ic *InstallContext) (*Result, error) {
 	if ic.BackendPort == 0 {
 		ic.BackendPort = spec.BackendPort
 	}
+	selectedPort, err := SelectBackendPort(ctx, ic.BackendPort, ic.BackendPortRange, ic.BackendPortExplicit)
+	if err != nil {
+		return nil, err
+	}
+	ic.BackendPort = selectedPort
 	if ic.PublicScheme == "" {
 		ic.PublicScheme = "https"
 	}
@@ -125,6 +131,7 @@ func Install(ctx context.Context, ic *InstallContext) (*Result, error) {
 		AppName:          ic.Name,
 		ComposeFile:      ic.ComposeFile,
 		AdminPassword:    ic.AdminPassword,
+		BackendPort:      ic.BackendPort,
 		OIDCClientID:     ic.OIDCClientID,
 		OIDCClientSecret: ic.OIDCClientSecret,
 	}, nil

@@ -304,18 +304,19 @@ func (p *Portal) installContext(spec *apps.Spec) (*apps.InstallContext, error) {
 		scheme = "http"
 	}
 	return &apps.InstallContext{
-		Spec:         spec,
-		Name:         spec.Name,
-		Subdomain:    spec.Subdomain,
-		BaseHost:     p.BaseHost,
-		PublicScheme: scheme,
-		PublicPort:   p.PublicPort,
-		BackendPort:  spec.BackendPort,
-		DataRoot:     filepath.Join(p.AppDataRoot, spec.Name),
-		ComposeFile:  filepath.Join(p.Orchestrator.ComposeRoot, spec.Name, "docker-compose.yaml"),
-		OIDCIssuer:   p.OIDCIssuer,
-		DB:           p.DB,
-		Orchestrator: p.Orchestrator,
+		Spec:             spec,
+		Name:             spec.Name,
+		Subdomain:        spec.Subdomain,
+		BaseHost:         p.BaseHost,
+		PublicScheme:     scheme,
+		PublicPort:       p.PublicPort,
+		BackendPort:      spec.BackendPort,
+		BackendPortRange: p.BackendPortRange,
+		DataRoot:         filepath.Join(p.AppDataRoot, spec.Name),
+		ComposeFile:      filepath.Join(p.Orchestrator.ComposeRoot, spec.Name, "docker-compose.yaml"),
+		OIDCIssuer:       p.OIDCIssuer,
+		DB:               p.DB,
+		Orchestrator:     p.Orchestrator,
 	}, nil
 }
 

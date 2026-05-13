@@ -108,12 +108,18 @@ Each install:
 5. Drives the app's first-boot setup (different per app — see
    [design.md](design.md)).
 
+Each app has a preferred localhost backend port, but nass checks whether it is
+free before rendering compose. If the preferred port is busy, nass picks the
+first free port from `orchestrator.backend_port_range` and stores that selected
+port in the proxy route.
+
 Output looks like:
 
 ```
 FIELD              VALUE
 app                jellyfin
 compose_file       /srv/nass/apps/jellyfin/docker-compose.yaml
+backend_port       18096
 admin_password     a3F2k9m...
 oidc_client_id     8c4a91a3d2f7b6e1
 oidc_client_secret R8tZ7x...
@@ -132,6 +138,7 @@ recovered later.
 | `--data-root /tank/jellyfin` | Override per-app data path (e.g. media on a different disk). |
 | `--admin-password '…'` | Set the per-app admin password instead of letting nass generate one. |
 | `--public-port :8443` | If you're not on `:443` (dev). |
+| `--backend-port 25001` | Force a specific localhost backend port; install fails if it is busy. |
 
 ### Inspect what's installed
 

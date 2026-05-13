@@ -26,3 +26,6 @@ subdomain = ""   # empty = root of base_host
 data_root      = "/srv/nass/data"
 compose_root   = "/srv/nass/apps"
 docker_compose = "docker compose"
+# If an app's preferred localhost backend port is busy, nass picks the first
+# free port in this range and stores it in the app route.
+backend_port_range = "20000-29999"

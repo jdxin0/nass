@@ -71,7 +71,9 @@ type InstallContext struct {
 	PublicPort   string // ":8443" or "" for default scheme port
 
 	// Backend port the proxy targets.
-	BackendPort int
+	BackendPort         int
+	BackendPortRange    string
+	BackendPortExplicit bool
 
 	// On-disk paths.
 	DataRoot    string // where the app's volumes live (per app)

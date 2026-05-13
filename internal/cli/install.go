@@ -30,6 +30,7 @@ func appInstallCmd() *cobra.Command {
 		composeFile string
 		adminPW     string
 		publicPort  string
+		backendPort int
 		dryRun      bool
 	)
 	cmd := &cobra.Command{
@@ -43,11 +44,16 @@ func appInstallCmd() *cobra.Command {
 				return fmt.Errorf("unknown app %q (try `nass app available`)", name)
 			}
 			return withDB(func(c context.Context, d *sql.DB, cfg *config.Config) error {
-				ic, err := buildInstallContext(d, cfg, &spec, subdomain, dataRoot, composeFile, adminPW, publicPort)
+				ic, err := buildInstallContext(d, cfg, &spec, subdomain, dataRoot, composeFile, adminPW, publicPort, backendPort)
 				if err != nil {
 					return err
 				}
 				if dryRun {
+					selectedPort, err := apps.SelectBackendPort(cmd.Context(), ic.BackendPort, ic.BackendPortRange, ic.BackendPortExplicit)
+					if err != nil {
+						return err
+					}
+					ic.BackendPort = selectedPort
 					fmt.Fprintf(cmd.OutOrStdout(), "would install %s\n", spec.Name)
 					fmt.Fprintf(cmd.OutOrStdout(), "  subdomain:    %s\n", ic.Subdomain)
 					fmt.Fprintf(cmd.OutOrStdout(), "  public URL:   %s\n", ic.PublicURL())
@@ -65,6 +71,7 @@ func appInstallCmd() *cobra.Command {
 				fmt.Fprintln(w, "FIELD\tVALUE")
 				fmt.Fprintf(w, "app\t%s\n", res.AppName)
 				fmt.Fprintf(w, "compose_file\t%s\n", res.ComposeFile)
+				fmt.Fprintf(w, "backend_port\t%d\n", res.BackendPort)
 				fmt.Fprintf(w, "admin_password\t%s\n", res.AdminPassword)
 				if res.OIDCClientID != "" {
 					fmt.Fprintf(w, "oidc_client_id\t%s\n", res.OIDCClientID)
@@ -81,6 +88,7 @@ func appInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&composeFile, "compose-file", "", "override the compose file path (default: <orchestrator.compose_root>/<name>/docker-compose.yaml)")
 	cmd.Flags().StringVar(&adminPW, "admin-password", "", "set the per-app admin password (default: random)")
 	cmd.Flags().StringVar(&publicPort, "public-port", "", "public port suffix in URLs (e.g. \":8443\"); empty = scheme default")
+	cmd.Flags().IntVar(&backendPort, "backend-port", 0, "override the localhost backend port to publish for this app")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "resolve everything but don't write files or run docker")
 	return cmd
 }
@@ -173,7 +181,7 @@ func appAvailableCmd() *cobra.Command {
 }
 
 func buildInstallContext(d *sql.DB, cfg *config.Config, spec *apps.Spec,
-	subdomainOverride, dataRootOverride, composeFileOverride, adminPW, publicPort string) (*apps.InstallContext, error) {
+	subdomainOverride, dataRootOverride, composeFileOverride, adminPW, publicPort string, backendPortOverride int) (*apps.InstallContext, error) {
 
 	subdomain := subdomainOverride
 	if subdomain == "" {
@@ -199,20 +207,28 @@ func buildInstallContext(d *sql.DB, cfg *config.Config, spec *apps.Spec,
 	if cfg.OIDC.Issuer == "" {
 		return nil, fmt.Errorf("oidc.issuer is unset (set base_host so the issuer can be derived)")
 	}
+	backendPort := spec.BackendPort
+	backendPortExplicit := false
+	if backendPortOverride != 0 {
+		backendPort = backendPortOverride
+		backendPortExplicit = true
+	}
 
 	return &apps.InstallContext{
-		Spec:          spec,
-		Name:          spec.Name,
-		Subdomain:     subdomain,
-		BaseHost:      cfg.Server.BaseHost,
-		PublicScheme:  "https",
-		PublicPort:    publicPort,
-		BackendPort:   spec.BackendPort,
-		DataRoot:      dataRoot,
-		ComposeFile:   composeFile,
-		AdminPassword: adminPW,
-		OIDCIssuer:    cfg.OIDC.Issuer,
-		DB:            d,
-		Orchestrator:  orchestrator.New(cfg.Orchestrator.ComposeRoot, cfg.Orchestrator.DockerCompose),
+		Spec:                spec,
+		Name:                spec.Name,
+		Subdomain:           subdomain,
+		BaseHost:            cfg.Server.BaseHost,
+		PublicScheme:        "https",
+		PublicPort:          publicPort,
+		BackendPort:         backendPort,
+		BackendPortRange:    cfg.Orchestrator.BackendPortRange,
+		BackendPortExplicit: backendPortExplicit,
+		DataRoot:            dataRoot,
+		ComposeFile:         composeFile,
+		AdminPassword:       adminPW,
+		OIDCIssuer:          cfg.OIDC.Issuer,
+		DB:                  d,
+		Orchestrator:        orchestrator.New(cfg.Orchestrator.ComposeRoot, cfg.Orchestrator.DockerCompose),
 	}, nil
 }

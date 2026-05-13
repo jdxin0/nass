@@ -2,6 +2,8 @@ package apps_test
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,6 +99,9 @@ func TestInstallRendersComposeNoOIDC(t *testing.T) {
 	if res.AppName != "noop" {
 		t.Fatalf("res: %+v", res)
 	}
+	if res.BackendPort != spec.BackendPort {
+		t.Fatalf("backend port: got %d want %d", res.BackendPort, spec.BackendPort)
+	}
 	body, err := os.ReadFile(composeFile)
 	if err != nil {
 		t.Fatalf("read compose: %v", err)
@@ -109,6 +114,52 @@ func TestInstallRendersComposeNoOIDC(t *testing.T) {
 	}
 	if res.OIDCClientID != "" {
 		t.Fatalf("expected no OIDC creds for NeedsOIDC=false, got %q", res.OIDCClientID)
+	}
+}
+
+func TestInstallFallsBackToFreeBackendPortWhenDefaultIsBusy(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	d, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer d.Close()
+
+	busy := occupyLocalPort(t)
+	fallback := freeLocalPort(t)
+	root := t.TempDir()
+	composeFile := filepath.Join(root, "compose", "x", "docker-compose.yaml")
+	dataRoot := filepath.Join(root, "data", "x")
+	tmpl := []byte("services:\n  x:\n    image: nginx\n    ports:\n      - \"127.0.0.1:{{.BackendPort}}:80\"\n")
+	spec := apps.Spec{
+		Name: "porttest", DisplayName: "Port Test", Subdomain: "porttest", BackendPort: busy,
+		PreserveHost:    true,
+		ComposeTemplate: tmpl,
+	}
+	orch := orchestrator.New(filepath.Join(root, "compose"), "true")
+
+	ic := &apps.InstallContext{
+		Spec: &spec, Name: spec.Name, Subdomain: spec.Subdomain, BaseHost: "test.local",
+		PublicScheme: "https", BackendPort: spec.BackendPort, BackendPortRange: fmt.Sprintf("%d-%d", fallback, fallback),
+		DataRoot: dataRoot, ComposeFile: composeFile,
+		DB: d, Orchestrator: orch,
+	}
+	res, err := apps.Install(context.Background(), ic)
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	body, err := os.ReadFile(composeFile)
+	if err != nil {
+		t.Fatalf("read compose: %v", err)
+	}
+	if !strings.Contains(string(body), fmt.Sprintf("127.0.0.1:%d:80", fallback)) {
+		t.Fatalf("compose did not use fallback port %d:\n%s", fallback, body)
+	}
+	if ic.BackendPort != fallback {
+		t.Fatalf("context backend port: got %d want %d", ic.BackendPort, fallback)
+	}
+	if res.BackendPort != fallback {
+		t.Fatalf("result backend port: got %d want %d", res.BackendPort, fallback)
 	}
 }
 
@@ -415,4 +466,24 @@ func names(specs []apps.Spec) []string {
 		out[i] = s.Name
 	}
 	return out
+}
+
+func freeLocalPort(t *testing.T) int {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	return ln.Addr().(*net.TCPAddr).Port
+}
+
+func occupyLocalPort(t *testing.T) int {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	return ln.Addr().(*net.TCPAddr).Port
 }

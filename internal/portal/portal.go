@@ -34,9 +34,10 @@ type Portal struct {
 	SiteTitle string
 	HTTPS     bool // false in dev: portal links use http://
 
-	AppDataRoot string
-	OIDCIssuer  string
-	PublicPort  string
+	AppDataRoot      string
+	OIDCIssuer       string
+	PublicPort       string
+	BackendPortRange string
 
 	InstallApp   func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error)
 	UninstallApp func(ctx context.Context, uc *apps.UninstallContext) error

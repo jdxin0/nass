@@ -66,6 +66,7 @@ func serveCmd() *cobra.Command {
 			}
 			portalSrv.AppDataRoot = cfg.Orchestrator.DataRoot
 			portalSrv.OIDCIssuer = cfg.OIDC.Issuer
+			portalSrv.BackendPortRange = cfg.Orchestrator.BackendPortRange
 			portalSrv.JobLog = cmd.OutOrStderr()
 
 			authSrv, err := oidc.New(d, users, oidc.Options{

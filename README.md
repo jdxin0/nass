@@ -136,6 +136,7 @@ resolved against the directory of `nass.toml`.
 | `orchestrator` | `data_root` | `/srv/nass/data` | App data volumes live under here. |
 | `orchestrator` | `compose_root` | `/srv/nass/apps` | Per-app `docker-compose.yaml` lives here. |
 | `orchestrator` | `docker_compose` | `docker compose` | Argv tokens for the compose CLI. |
+| `orchestrator` | `backend_port_range` | `20000-29999` | Fallback localhost port range when an app's preferred port is busy. |
 
 ## Documentation
 

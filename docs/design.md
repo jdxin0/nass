@@ -144,7 +144,7 @@ type Spec struct {
     Description     string
     Icon            string  // emoji
     Subdomain       string  // default subdomain
-    BackendPort     int     // host port for the proxy
+    BackendPort     int     // preferred host port for the proxy
     PreserveHost    bool    // forward original Host header?
     NeedsOIDC       bool    // provision an OIDC client?
     OIDCGate        bool    // gate the proxy route on a portal session?
@@ -159,7 +159,10 @@ The install pipeline (`internal/apps/install.go`) is fixed:
 1. **Resolve context** — fill in defaults: subdomain from spec, data root from
    `<orchestrator.data_root>/<name>`, compose path from
    `<orchestrator.compose_root>/<name>/docker-compose.yaml`, random admin
-   password if none given.
+   password if none given, and selected backend port. Each app has a preferred
+   localhost port; if that port is busy, nass scans
+   `orchestrator.backend_port_range` and stores the first free port in the app
+   route. An explicit `--backend-port` must be free or the install fails.
 2. **Provision OIDC client** if `NeedsOIDC`. Now `ic.OIDCClientID/Secret` are
    populated and the issuer URL is known.
 3. **Render compose** — `text/template` over `Spec.ComposeTemplate` with the
