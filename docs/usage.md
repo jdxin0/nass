@@ -203,6 +203,55 @@ sudo nass app install <name>
 Use `--keep-data` when you want to preserve the data folder and only rebuild
 the compose file / OIDC client.
 
+### Upgrading an app
+
+nass does not have a built-in `app upgrade` command yet. For now, app upgrades
+are manual Docker Compose operations against the generated compose file under
+`/srv/nass/apps/<name>/`.
+
+Before upgrading, read the app's own release notes and make a backup. Some apps
+run database or file migrations on first boot after an image upgrade. If the new
+version fails after it has migrated data, simply switching the compose file back
+to an older image may not be enough to recover.
+
+Recommended manual flow:
+
+```sh
+APP=immich
+COMPOSE=/srv/nass/apps/$APP/docker-compose.yaml
+DATA=/srv/nass/data/$APP
+
+# 1. Back up the generated compose/config and the app data before changing images.
+sudo mkdir -p /srv/nass/backups/$APP
+sudo cp -a /srv/nass/apps/$APP /srv/nass/backups/$APP/apps-$(date +%Y%m%d-%H%M%S)
+sudo cp -a "$DATA" /srv/nass/backups/$APP/data-$(date +%Y%m%d-%H%M%S)
+
+# 2. Edit the image tags in the generated compose file.
+sudo editor "$COMPOSE"
+
+# 3. Pull and start the new version.
+sudo docker compose -f "$COMPOSE" pull
+sudo docker compose -f "$COMPOSE" up -d
+
+# 4. Inspect startup and app logs.
+sudo docker compose -f "$COMPOSE" ps
+sudo docker compose -f "$COMPOSE" logs --tail=200
+```
+
+If startup fails before the app has had a chance to migrate data, you can
+usually restore the previous compose directory and start the old containers
+again. If the app already migrated its database or files, restore the data
+backup too.
+
+```sh
+sudo docker compose -f "$COMPOSE" down
+# Restore the previous /srv/nass/apps/<name>/ and, if needed, /srv/nass/data/<name>/.
+sudo docker compose -f "$COMPOSE" up -d
+```
+
+For large apps such as Immich and Nextcloud, a filesystem snapshot is safer and
+faster than a full `cp -a` data copy when your storage supports it.
+
 ## Managing users
 
 ```sh
@@ -314,7 +363,7 @@ for app in nextcloud jellyfin immich gitea qbittorrent blinko calibreweb linkwar
   sudo docker compose -f /srv/nass/apps/$app/docker-compose.yaml stop
 done
 
-# Update an app's image (edit the compose file, then):
+# Upgrade an app image only after backing up its compose/config and data.
 sudo docker compose -f /srv/nass/apps/<name>/docker-compose.yaml pull
 sudo docker compose -f /srv/nass/apps/<name>/docker-compose.yaml up -d
 
