@@ -26,6 +26,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/paperless"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
 	_ "github.com/jdxin0/nass/internal/apps/vaultwarden"
+	_ "github.com/jdxin0/nass/internal/apps/vikunja"
 	"github.com/spf13/cobra"
 )
 

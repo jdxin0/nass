@@ -23,6 +23,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/paperless"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
 	_ "github.com/jdxin0/nass/internal/apps/vaultwarden"
+	_ "github.com/jdxin0/nass/internal/apps/vikunja"
 	"github.com/jdxin0/nass/internal/db"
 	"github.com/jdxin0/nass/internal/orchestrator"
 )
@@ -641,6 +642,77 @@ func TestVaultwardenComposeRenders(t *testing.T) {
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestVikunjaComposeRenders(t *testing.T) {
+	s, ok := apps.Get("vikunja")
+	if !ok {
+		t.Fatalf("vikunja not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("vikunja should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("vikunja uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/vikunja",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://vikunja.nass.local/auth/openid/nass" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: vikunja/vikunja:",
+		"127.0.0.1:18095:3456",
+		"/srv/nass/data/vikunja/files:/app/vikunja/files",
+		"/srv/nass/data/vikunja/db:/db",
+		"/srv/nass/data/vikunja/config.yml:/etc/vikunja/config.yml:ro",
+		"VIKUNJA_SERVICE_PUBLICURL: https://vikunja.nass.local",
+		"VIKUNJA_SERVICE_ROOTPATH: /etc/vikunja",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+
+	ic.DataRoot = t.TempDir()
+	if err := s.PreUp(context.Background(), ic); err != nil {
+		t.Fatalf("pre-up: %v", err)
+	}
+	config, err := os.ReadFile(filepath.Join(ic.DataRoot, "config.yml"))
+	if err != nil {
+		t.Fatalf("read config.yml: %v", err)
+	}
+	for _, want := range []string{
+		`publicurl: "https://vikunja.nass.local"`,
+		"enableregistration: false",
+		"type: sqlite",
+		"path: /db/vikunja.db",
+		"local:\n    enabled: false",
+		"openid:\n    enabled: true",
+		"nass:",
+		"name: nass",
+		`authurl: "https://auth.nass.local"`,
+		`clientid: "cid"`,
+		`clientsecret: "sec"`,
+		"scope: openid profile email",
+	} {
+		if !strings.Contains(string(config), want) {
+			t.Errorf("missing %q in:\n%s", want, config)
 		}
 	}
 }

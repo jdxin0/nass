@@ -133,6 +133,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/firefly"
     _ "github.com/jdxin0/nass/internal/apps/paperless"
     _ "github.com/jdxin0/nass/internal/apps/vaultwarden"
+    _ "github.com/jdxin0/nass/internal/apps/vikunja"
 )
 ```
 
@@ -370,6 +371,20 @@ short contention doesn't blow up.
   `OAUTH2_USER_CREATION=1` auto-creates a Miniflux user (non-admin) the first
   time someone signs in via the IdP.
 - PostUp only waits for `/healthcheck`; everything else is env-driven.
+
+### Vikunja (`apps/vikunja/`)
+
+- BackendPort `18095`, native OIDC through Vikunja's OpenID provider support.
+- Redirect URI: `https://vikunja.<base_host>/auth/openid/nass`.
+- Compose runs the single `vikunja/vikunja` container with SQLite. Persistent
+  data is split into `{DataRoot}/files` for uploads and `{DataRoot}/db` for
+  the SQLite database.
+- PreUp writes `{DataRoot}/config.yml` because Vikunja's OIDC provider list is
+  configured through the config file. The config sets `service.publicurl`,
+  disables public registration and local password auth, and registers nass as
+  the `nass` OpenID provider with `openid profile email` scope.
+- PostUp only waits for the web service; all first-boot configuration is file
+  based.
 
 ### Jitsi Meet (`apps/jitsi/`)
 

@@ -1,0 +1,17 @@
+services:
+  vikunja:
+    container_name: {{.Name}}
+    image: vikunja/vikunja:latest
+    restart: unless-stopped
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: {{.PublicURL}}
+      VIKUNJA_SERVICE_ROOTPATH: /etc/vikunja
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:3456"
+    volumes:
+      - {{.DataRoot}}/files:/app/vikunja/files
+      - {{.DataRoot}}/db:/db
+      - {{.DataRoot}}/config.yml:/etc/vikunja/config.yml:ro
+    extra_hosts:
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"

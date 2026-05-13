@@ -30,6 +30,7 @@ These apps are bundled in the binary and can be installed with
 | Paperless-ngx | `paperless` | Document management for scanned paper | Native OIDC |
 | Vaultwarden | `vaultwarden` | Bitwarden-compatible password manager | Native OIDC |
 | Miniflux | `miniflux` | Minimalist RSS reader | Native OIDC |
+| Vikunja | `vikunja` | Task and project management | Native OIDC |
 | Jitsi Meet | `jitsi` | Video conferencing | Portal gate (requires UDP 10000) |
 
 ```

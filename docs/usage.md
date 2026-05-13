@@ -359,7 +359,7 @@ and every OIDC-using app will need its client re-provisioned.
 nass app available
 
 # Stop everything but keep data:
-for app in nextcloud jellyfin immich gitea qbittorrent blinko calibreweb linkwarden firefly paperless vaultwarden miniflux jitsi; do
+for app in nextcloud jellyfin immich gitea qbittorrent blinko calibreweb linkwarden firefly paperless vaultwarden miniflux vikunja jitsi; do
   sudo docker compose -f /srv/nass/apps/$app/docker-compose.yaml stop
 done
 
