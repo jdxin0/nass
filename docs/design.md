@@ -381,6 +381,7 @@ short contention doesn't blow up.
   the SQLite database.
 - PreUp writes `{DataRoot}/config.yml` because Vikunja's OIDC provider list is
   configured through the config file. The config sets `service.publicurl`,
+  pins `files.basepath` to the mounted `/app/vikunja/files` directory,
   disables public registration and local password auth, and registers nass as
   the `nass` OpenID provider with `openid profile email` scope.
 - PostUp only waits for the web service; all first-boot configuration is file

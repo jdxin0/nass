@@ -56,6 +56,8 @@ func preUp(ctx context.Context, ic *apps.InstallContext) error {
   publicurl: %q
   enableregistration: false
   timezone: UTC
+files:
+  basepath: /app/vikunja/files
 database:
   type: sqlite
   path: /db/vikunja.db

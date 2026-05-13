@@ -681,12 +681,14 @@ func TestVikunjaComposeRenders(t *testing.T) {
 		"/srv/nass/data/vikunja/db:/db",
 		"/srv/nass/data/vikunja/config.yml:/etc/vikunja/config.yml:ro",
 		"VIKUNJA_SERVICE_PUBLICURL: https://vikunja.nass.local",
-		"VIKUNJA_SERVICE_ROOTPATH: /etc/vikunja",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("missing %q in:\n%s", want, body)
 		}
+	}
+	if strings.Contains(string(body), "VIKUNJA_SERVICE_ROOTPATH") {
+		t.Fatalf("compose should not set service.rootpath to /etc/vikunja:\n%s", body)
 	}
 
 	ic.DataRoot = t.TempDir()
@@ -700,6 +702,7 @@ func TestVikunjaComposeRenders(t *testing.T) {
 	for _, want := range []string{
 		`publicurl: "https://vikunja.nass.local"`,
 		"enableregistration: false",
+		"files:\n  basepath: /app/vikunja/files",
 		"type: sqlite",
 		"path: /db/vikunja.db",
 		"local:\n    enabled: false",

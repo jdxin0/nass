@@ -5,7 +5,6 @@ services:
     restart: unless-stopped
     environment:
       VIKUNJA_SERVICE_PUBLICURL: {{.PublicURL}}
-      VIKUNJA_SERVICE_ROOTPATH: /etc/vikunja
     ports:
       - "127.0.0.1:{{.BackendPort}}:3456"
     volumes:
