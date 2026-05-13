@@ -152,6 +152,8 @@ resolved against the directory of `nass.toml`.
   pipeline, DB schema, why-it's-shaped-this-way notes.
 - [Usage](docs/usage.md) — day-to-day operations: adding apps, managing
   users, recovering from common problems.
+- [Adding an app](docs/adding-an-app.md) — step-by-step guide for bundling a
+  new app into the binary.
 
 ## Layout
 

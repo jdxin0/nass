@@ -137,7 +137,8 @@ import (
 Each app's package has an `init()` that calls `apps.Register(spec)` with its
 `Spec`. `apps.Get(name)` and `apps.All()` are how the CLI looks them up.
 Adding an app is "drop a package, add the import" — there's no central list
-to keep in sync.
+to keep in sync. See [adding-an-app.md](adding-an-app.md) for the full
+walkthrough.
 
 A `Spec` is the static description of the app:
 
