@@ -391,6 +391,7 @@ func (p *Portal) postUninstallApp(w http.ResponseWriter, r *http.Request) {
 		Name:         name,
 		ComposeFile:  composeFile,
 		DataRoot:     dataRoot,
+		Force:        true,
 		DB:           p.DB,
 		Orchestrator: p.Orchestrator,
 	}
