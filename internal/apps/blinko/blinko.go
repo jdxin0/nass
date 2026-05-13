@@ -21,6 +21,8 @@ var composeTemplate []byte
 
 const providerID = "nass"
 
+type composeExecFunc func(ctx context.Context, composeFile, service string, args ...string) (string, error)
+
 func init() {
 	apps.Register(apps.Spec{
 		Name:             "blinko",
@@ -50,11 +52,7 @@ func postUp(ctx context.Context, ic *apps.InstallContext) error {
 		return fmt.Errorf("wait for blinko: %w", err)
 	}
 
-	sql, err := oauthProviderSQL(ic)
-	if err != nil {
-		return fmt.Errorf("build blinko oauth config: %w", err)
-	}
-	if _, err := ic.Orchestrator.Exec(ctx, ic.ComposeFile, "postgres", "psql", "-U", "postgres", "-d", "postgres", "-c", sql); err != nil {
+	if err := seedOAuthProvider(ctx, ic, ic.Orchestrator.Exec, 2*time.Second); err != nil {
 		return fmt.Errorf("seed blinko oauth config: %w", err)
 	}
 
@@ -65,6 +63,24 @@ func postUp(ctx context.Context, ic *apps.InstallContext) error {
 	upCtx, cancel2 := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel2()
 	return apps.WaitFor(upCtx, target, 2*time.Second)
+}
+
+func seedOAuthProvider(ctx context.Context, ic *apps.InstallContext, exec composeExecFunc, interval time.Duration) error {
+	sql, err := oauthProviderSQL(ic)
+	if err != nil {
+		return err
+	}
+	for {
+		_, err := exec(ctx, ic.ComposeFile, "postgres", "psql", "-U", "postgres", "-d", "postgres", "-c", sql)
+		if err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%w: %v", ctx.Err(), err)
+		case <-time.After(interval):
+		}
+	}
 }
 
 func oauthProviderSQL(ic *apps.InstallContext) (string, error) {

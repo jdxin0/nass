@@ -22,6 +22,7 @@ import (
 	"github.com/jdxin0/nass/internal/portal"
 	"github.com/jdxin0/nass/internal/proxy"
 
+	_ "github.com/jdxin0/nass/internal/apps/blinko"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
 )
 
@@ -217,6 +218,48 @@ func TestAdminUninstallAppRunsInBackground(t *testing.T) {
 		}
 		return len(got) == 0
 	})
+}
+
+func TestAdminUninstallCleansFailedInstallEvenWhenComposeDownFails(t *testing.T) {
+	f := newFixture(t)
+	jar, _ := cookiejar.New(nil)
+	hc := &http.Client{Jar: jar}
+	f.portal.Orchestrator = orchestrator.New(t.TempDir(), "false")
+
+	if err := proxy.SaveSettings(context.Background(), f.db, "blinko", proxy.AppSettings{
+		Subdomain:   "blinko",
+		Backend:     "http://127.0.0.1:11111",
+		ComposeFile: filepath.Join(t.TempDir(), "docker-compose.yaml"),
+	}); err != nil {
+		t.Fatalf("save app: %v", err)
+	}
+	if _, err := hc.PostForm(f.server.URL+"/portal/login",
+		url.Values{"username": {"admin"}, "password": {"supersecretpw"}, "next": {"/"}}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := hc.PostForm(f.server.URL+"/portal/admin/apps/blinko/uninstall", nil)
+	if err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	resp.Body.Close()
+
+	waitFor(t, func() bool {
+		got, err := proxy.LoadEnabled(context.Background(), f.db, "test.local")
+		if err != nil {
+			t.Fatalf("load: %v", err)
+		}
+		return len(got) == 0
+	})
+
+	resp, err = hc.Get(f.server.URL + "/portal/admin")
+	if err != nil {
+		t.Fatalf("get admin: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), `name="name" value="blinko"`) {
+		t.Fatalf("blinko install button should be shown after cleanup:\n%s", body)
+	}
 }
 
 func TestAdminUserManagement(t *testing.T) {
