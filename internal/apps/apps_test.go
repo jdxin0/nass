@@ -15,6 +15,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
+	_ "github.com/jdxin0/nass/internal/apps/jitsi"
 	_ "github.com/jdxin0/nass/internal/apps/linkwarden"
 	_ "github.com/jdxin0/nass/internal/apps/miniflux"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
@@ -628,6 +629,53 @@ func TestFireflyComposeRenders(t *testing.T) {
 		"AUTHENTICATION_GUARD_HEADER: HTTP_REMOTE_USER",
 		"AUTHENTICATION_GUARD_EMAIL: HTTP_REMOTE_EMAIL",
 		`TRUSTED_PROXIES: "**"`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestJitsiComposeRenders(t *testing.T) {
+	s, ok := apps.Get("jitsi")
+	if !ok {
+		t.Fatalf("jitsi not registered")
+	}
+	if s.NeedsOIDC {
+		t.Fatalf("jitsi has no native OIDC; expected NeedsOIDC=false: %+v", s)
+	}
+	if !s.OIDCGate {
+		t.Fatalf("jitsi should be portal-gated: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", PublicPort: ":8443", BackendPort: s.BackendPort,
+		DataRoot:      "/srv/nass/data/jitsi",
+		AdminPassword: "abcd1234",
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: jitsi/web:",
+		"image: jitsi/prosody:",
+		"image: jitsi/jicofo:",
+		"image: jitsi/jvb:",
+		"127.0.0.1:18060:80",
+		"10000:10000/udp",
+		"PUBLIC_URL: https://meet.nass.local:8443",
+		`ENABLE_AUTH: "0"`,
+		"JICOFO_AUTH_PASSWORD: abcd1234",
+		"JVB_AUTH_PASSWORD: abcd1234",
+		"DOCKER_HOST_ADDRESS: ${JITSI_DOCKER_HOST_ADDRESS:-}",
+		"/srv/nass/data/jitsi/web:/config",
+		"/srv/nass/data/jitsi/prosody/config:/config",
+		"/srv/nass/data/jitsi/jvb:/config",
+		"auth.meet.jitsi",
+		"jvbbrewery",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("missing %q in:\n%s", want, body)

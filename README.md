@@ -29,6 +29,7 @@ These apps are bundled in the binary and can be installed with
 | Paperless-ngx | `paperless` | Document management for scanned paper | Native OIDC |
 | Vaultwarden | `vaultwarden` | Bitwarden-compatible password manager | Native OIDC |
 | Miniflux | `miniflux` | Minimalist RSS reader | Native OIDC |
+| Jitsi Meet | `jitsi` | Video conferencing | Portal gate (requires UDP 10000) |
 
 ```
                          ┌──────────── nass ────────────┐
@@ -100,6 +101,7 @@ sudo nass app install firefly
 sudo nass app install paperless
 sudo nass app install vaultwarden
 sudo nass app install miniflux
+sudo nass app install jitsi
 ```
 
 Now `https://nextcloud.example.com`, `https://jellyfin.example.com`, etc.
@@ -166,6 +168,7 @@ internal/
     nextcloud/        # one package per app
     gitea/
     jellyfin/
+    jitsi/
     linkwarden/
     immich/
     miniflux/

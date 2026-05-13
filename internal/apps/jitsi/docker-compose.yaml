@@ -1,0 +1,128 @@
+services:
+  web:
+    container_name: {{.Name}}
+    image: jitsi/web:stable
+    restart: unless-stopped
+    depends_on:
+      - prosody
+      - jicofo
+    environment:
+      # Auth is handled by the nass portal gate; Jitsi runs in open mode.
+      ENABLE_AUTH: "0"
+      ENABLE_GUESTS: "1"
+      ENABLE_LETSENCRYPT: "0"
+      ENABLE_HTTP_REDIRECT: "0"
+      ENABLE_XMPP_WEBSOCKET: "1"
+      DISABLE_HTTPS: "1"
+      PUBLIC_URL: {{.PublicURL}}
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_BOSH_URL_BASE: http://prosody:5280
+      XMPP_GUEST_DOMAIN: guest.meet.jitsi
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_RECORDER_DOMAIN: recorder.meet.jitsi
+      TZ: UTC
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:80"
+    volumes:
+      - {{.DataRoot}}/web:/config
+    networks:
+      jitsi:
+
+  prosody:
+    container_name: {{.Name}}_prosody
+    image: jitsi/prosody:stable
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5347"
+      - "5280"
+    environment:
+      AUTH_TYPE: internal
+      ENABLE_AUTH: "0"
+      ENABLE_GUESTS: "1"
+      GLOBAL_MODULES: ""
+      GLOBAL_CONFIG: ""
+      LDAP_URL: ""
+      LDAP_BASE: ""
+      JICOFO_AUTH_PASSWORD: {{.AdminPassword}}
+      JVB_AUTH_PASSWORD: {{.AdminPassword}}
+      JIGASI_XMPP_PASSWORD: {{.AdminPassword}}
+      JIBRI_RECORDER_PASSWORD: {{.AdminPassword}}
+      JIBRI_XMPP_PASSWORD: {{.AdminPassword}}
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_GUEST_DOMAIN: guest.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_RECORDER_DOMAIN: recorder.meet.jitsi
+      XMPP_MODULES: ""
+      XMPP_MUC_MODULES: ""
+      XMPP_INTERNAL_MUC_MODULES: ""
+      TZ: UTC
+    volumes:
+      - {{.DataRoot}}/prosody/config:/config
+      - {{.DataRoot}}/prosody/plugins:/prosody-plugins-custom
+    networks:
+      jitsi:
+        aliases:
+          - auth.meet.jitsi
+          - meet.jitsi
+          - guest.meet.jitsi
+          - muc.meet.jitsi
+          - internal-muc.meet.jitsi
+          - recorder.meet.jitsi
+
+  jicofo:
+    container_name: {{.Name}}_jicofo
+    image: jitsi/jicofo:stable
+    restart: unless-stopped
+    depends_on:
+      - prosody
+    environment:
+      AUTH_TYPE: internal
+      ENABLE_AUTH: "0"
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_SERVER: prosody
+      JICOFO_AUTH_USER: focus
+      JICOFO_AUTH_PASSWORD: {{.AdminPassword}}
+      JVB_BREWERY_MUC: jvbbrewery
+      TZ: UTC
+    volumes:
+      - {{.DataRoot}}/jicofo:/config
+    networks:
+      jitsi:
+
+  jvb:
+    container_name: {{.Name}}_jvb
+    image: jitsi/jvb:stable
+    restart: unless-stopped
+    depends_on:
+      - prosody
+    # UDP 10000 must reach the host's public/LAN interface. The proxy does
+    # not handle this — open it in the host firewall.
+    ports:
+      - "10000:10000/udp"
+    environment:
+      # Set by PreUp into the .env file next to this compose file.
+      DOCKER_HOST_ADDRESS: ${JITSI_DOCKER_HOST_ADDRESS:-}
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_SERVER: prosody
+      JVB_AUTH_USER: jvb
+      JVB_AUTH_PASSWORD: {{.AdminPassword}}
+      JVB_BREWERY_MUC: jvbbrewery
+      JVB_PORT: "10000"
+      JVB_TCP_HARVESTER_DISABLED: "true"
+      JVB_STUN_SERVERS: meet-jit-si-turnrelay.jitsi.net:443
+      TZ: UTC
+    volumes:
+      - {{.DataRoot}}/jvb:/config
+    networks:
+      jitsi:
+
+networks:
+  jitsi:

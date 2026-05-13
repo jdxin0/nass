@@ -123,6 +123,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/gitea"
     _ "github.com/jdxin0/nass/internal/apps/immich"
     _ "github.com/jdxin0/nass/internal/apps/jellyfin"
+    _ "github.com/jdxin0/nass/internal/apps/jitsi"
     _ "github.com/jdxin0/nass/internal/apps/linkwarden"
     _ "github.com/jdxin0/nass/internal/apps/miniflux"
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
@@ -357,6 +358,30 @@ short contention doesn't blow up.
   `OAUTH2_USER_CREATION=1` auto-creates a Miniflux user (non-admin) the first
   time someone signs in via the IdP.
 - PostUp only waits for `/healthcheck`; everything else is env-driven.
+
+### Jitsi Meet (`apps/jitsi/`)
+
+- BackendPort `18060`. **No** native OIDC: gated by `OIDCGate=true`. Jitsi
+  itself runs with `ENABLE_AUTH=0` — every request that lands on the web
+  container has already been authenticated by the portal.
+- Compose runs the four standard Jitsi services: `jitsi/web` (Nginx + the
+  React SPA), `jitsi/prosody` (XMPP signalling), `jitsi/jicofo` (focus
+  component), and `jitsi/jvb` (the videobridge). All share a dedicated
+  bridge network with prosody-domain DNS aliases (`auth.meet.jitsi`,
+  `muc.meet.jitsi`, …). The shared XMPP password between jicofo/jvb and
+  prosody is `{{.AdminPassword}}`.
+- The web container is proxied by nass like any other app, but the JVB
+  media stream is **direct UDP** between the user's browser and the host
+  on port 10000 — nass does not proxy it. The compose file binds
+  `10000/udp` to the host; you must open it in any host firewall in front
+  of nass. WebSocket signalling stays on the proxied HTTPS connection.
+- PreUp detects the host's primary outbound IP (UDP-dial trick to
+  `1.1.1.1:80`) and writes it to `.env` next to the compose file as
+  `JITSI_DOCKER_HOST_ADDRESS`. JVB picks that up via compose
+  interpolation and advertises it as its WebRTC candidate. On a
+  multi-NIC host or behind NAT, edit that file (or set up a TURN
+  server) — auto-detect picks one interface.
+- PostUp only waits for the web container on `/`.
 
 ### Firefly III (`apps/firefly/`)
 
