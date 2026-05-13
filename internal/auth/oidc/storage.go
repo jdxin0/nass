@@ -188,7 +188,7 @@ func (s *Storage) SigningKey(ctx context.Context) (op.SigningKey, error) {
 }
 
 func (s *Storage) SignatureAlgorithms(ctx context.Context) ([]jose.SignatureAlgorithm, error) {
-	return []jose.SignatureAlgorithm{jose.ES256}, nil
+	return []jose.SignatureAlgorithm{s.signing.alg}, nil
 }
 
 func (s *Storage) KeySet(ctx context.Context) ([]op.Key, error) {

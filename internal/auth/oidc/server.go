@@ -1,7 +1,7 @@
 package oidc
 
 import (
-	"crypto/ecdsa"
+	"crypto"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -15,7 +15,7 @@ import (
 // Options configures the OIDC server bootstrapping.
 type Options struct {
 	Issuer        string
-	SigningKey    *ecdsa.PrivateKey
+	SigningKey    crypto.Signer
 	SigningKeyID  string
 	CryptoKey     [32]byte
 	AllowInsecure bool // set true for HTTP testing
@@ -41,7 +41,10 @@ func New(db *sql.DB, users *auth.Store, opts Options) (*Server, error) {
 	if keyID == "" {
 		keyID = uuid.NewString()
 	}
-	sk := &signingKey{id: keyID, key: opts.SigningKey}
+	sk, err := newSigningKey(keyID, opts.SigningKey)
+	if err != nil {
+		return nil, fmt.Errorf("signing key: %w", err)
+	}
 	storage := NewStorage(db, users, sk)
 
 	cfg := &op.Config{

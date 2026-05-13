@@ -2,9 +2,8 @@ package cli
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -106,11 +105,14 @@ func generateCryptoKey(path string) error {
 	return err
 }
 
+// generateSigningKey writes a new RSA 2048 PKCS#8 PEM private key. The OIDC
+// server signs ID tokens as RS256, which is what NextAuth-based apps like
+// Linkwarden hard-code as the expected id_token_signed_response_alg.
 func generateSigningKey(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return err
 	}

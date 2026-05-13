@@ -1,7 +1,10 @@
 package oidc
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -12,9 +15,11 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/op"
 )
 
-// LoadSigningKey reads a PEM-encoded ECDSA P-256 private key (PKCS#8).
-// `nass init` writes the key in this format.
-func LoadSigningKey(path string) (*ecdsa.PrivateKey, error) {
+// LoadSigningKey reads a PEM-encoded PKCS#8 private key. RSA produces RS256
+// signatures; ECDSA P-256 produces ES256. RSA is the default for new
+// deployments because NextAuth-based apps (e.g. Linkwarden) hard-code RS256
+// as the expected id_token_signed_response_alg.
+func LoadSigningKey(path string) (crypto.Signer, error) {
 	pemBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read signing key: %w", err)
@@ -27,11 +32,17 @@ func LoadSigningKey(path string) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse signing key: %w", err)
 	}
-	ec, ok := priv.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("signing key: expected ECDSA, got %T", priv)
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return k, nil
+	case *ecdsa.PrivateKey:
+		if k.Curve != elliptic.P256() {
+			return nil, fmt.Errorf("signing key: ECDSA curve %s not supported (use P-256)", k.Curve.Params().Name)
+		}
+		return k, nil
+	default:
+		return nil, fmt.Errorf("signing key: unsupported type %T", priv)
 	}
-	return ec, nil
 }
 
 // LoadCryptoKey reads a 32-byte symmetric key used by the OP for state encryption.
@@ -48,23 +59,48 @@ func LoadCryptoKey(path string) ([32]byte, error) {
 	return k, nil
 }
 
-// signingKey wraps an ECDSA key so it satisfies op.SigningKey.
+// signingKey wraps a crypto.Signer so it satisfies op.SigningKey. The
+// algorithm is derived from the key type so RSA keys sign as RS256 and
+// ECDSA P-256 keys sign as ES256.
 type signingKey struct {
 	id  string
-	key *ecdsa.PrivateKey
+	key crypto.Signer
+	alg jose.SignatureAlgorithm
 }
 
-func (s *signingKey) SignatureAlgorithm() jose.SignatureAlgorithm { return jose.ES256 }
+func newSigningKey(id string, key crypto.Signer) (*signingKey, error) {
+	alg, err := signatureAlg(key)
+	if err != nil {
+		return nil, err
+	}
+	return &signingKey{id: id, key: key, alg: alg}, nil
+}
+
+func signatureAlg(key crypto.Signer) (jose.SignatureAlgorithm, error) {
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		return jose.RS256, nil
+	case *ecdsa.PrivateKey:
+		if k.Curve != elliptic.P256() {
+			return "", fmt.Errorf("unsupported ECDSA curve: %s", k.Curve.Params().Name)
+		}
+		return jose.ES256, nil
+	default:
+		return "", fmt.Errorf("unsupported key type %T", key)
+	}
+}
+
+func (s *signingKey) SignatureAlgorithm() jose.SignatureAlgorithm { return s.alg }
 func (s *signingKey) Key() any                                    { return s.key }
 func (s *signingKey) ID() string                                  { return s.id }
 
 // publicKey wraps the public half so it satisfies op.Key.
 type publicKey struct{ s *signingKey }
 
-func (p *publicKey) ID() string                          { return p.s.id }
-func (p *publicKey) Algorithm() jose.SignatureAlgorithm  { return jose.ES256 }
-func (p *publicKey) Use() string                         { return "sig" }
-func (p *publicKey) Key() any                            { return &p.s.key.PublicKey }
+func (p *publicKey) ID() string                         { return p.s.id }
+func (p *publicKey) Algorithm() jose.SignatureAlgorithm { return p.s.alg }
+func (p *publicKey) Use() string                        { return "sig" }
+func (p *publicKey) Key() any                           { return p.s.key.Public() }
 
 var (
 	_ op.SigningKey = (*signingKey)(nil)
