@@ -25,7 +25,7 @@ services:
       PAPERLESS_ADMIN_USER: admin
       PAPERLESS_ADMIN_PASSWORD: {{.AdminPassword}}
       PAPERLESS_ADMIN_MAIL: admin@{{.BaseHost}}
-      PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect
+      PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect,nass_sso
       PAPERLESS_SOCIAL_AUTO_SIGNUP: "True"
       PAPERLESS_ACCOUNT_DEFAULT_HTTP_PROTOCOL: https
       PAPERLESS_SOCIALACCOUNT_PROVIDERS: '{"openid_connect":{"APPS":[{"provider_id":"nass","name":"nass","client_id":"{{.OIDCClientID}}","secret":"{{.OIDCClientSecret}}","settings":{"server_url":"{{.OIDCDiscoveryURL}}"}}]}}'
@@ -36,6 +36,7 @@ services:
       - {{.DataRoot}}/media:/usr/src/paperless/media
       - {{.DataRoot}}/export:/usr/src/paperless/export
       - {{.DataRoot}}/consume:/usr/src/paperless/consume
+      - {{.DataRoot}}/nass_sso:/usr/src/paperless/src/nass_sso:ro
     extra_hosts:
       - "auth.{{.BaseHost}}:host-gateway"
       - "{{.BaseHost}}:host-gateway"

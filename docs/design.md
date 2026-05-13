@@ -321,6 +321,14 @@ short contention doesn't blow up.
 - `PAPERLESS_SOCIAL_AUTO_SIGNUP=True` creates a Paperless user on the first
   SSO login; the seeded `PAPERLESS_ADMIN_USER` stays as a break-glass
   password account on `/admin/`.
+- A tiny embedded Django app, `nass_sso` (in `apps/paperless/nass_sso/`), is
+  written to `{DataRoot}/nass_sso/` in PreUp and bind-mounted read-only at
+  `/usr/src/paperless/src/nass_sso`. It registers an allauth
+  `user_signed_up` receiver that promotes new SSO sign-ups to superuser.
+  Paperless's default RBAC otherwise leaves them with no document
+  permissions, so they can't upload — nass treats every IdP-authenticated
+  user as trusted (the operator curates the IdP), so granting superuser
+  matches the trust model.
 
 ### Vaultwarden (`apps/vaultwarden/`)
 
