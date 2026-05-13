@@ -20,15 +20,10 @@ var nameRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 type adminAppRow struct {
 	Name        string
 	DisplayName string
-	Settings    proxy.AppSettings
-	State       orchestrator.State
-}
-
-type availableAppRow struct {
-	Name        string
-	DisplayName string
 	Description string
 	Subdomain   string
+	Settings    proxy.AppSettings
+	State       orchestrator.State
 	Installed   bool
 	Installing  bool
 }
@@ -51,27 +46,36 @@ func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rows := make([]adminAppRow, 0, len(installedApps))
+	// Build a single merged list: every installed app first (so manually
+	// `nass app enable`d routes not in the registry still show up), then any
+	// remaining registry apps that aren't installed yet.
+	seen := make(map[string]bool, len(installedApps))
+	rows := make([]adminAppRow, 0, len(installedApps)+len(apps.All()))
 	for _, a := range installedApps {
-		rows = append(rows, adminAppRow{
+		seen[a.Name] = true
+		row := adminAppRow{
 			Name:        a.Name,
 			DisplayName: a.displayName(),
 			Settings:    a.Settings,
 			State:       p.stateOf(r.Context(), a),
-		})
+			Installed:   true,
+			Installing:  p.hasRunningJob("install", a.Name),
+		}
+		if spec, ok := apps.Get(a.Name); ok {
+			row.Description = spec.Description
+			row.Subdomain = spec.Subdomain
+		}
+		rows = append(rows, row)
 	}
-	installed := make(map[string]bool, len(installedApps))
-	for _, a := range installedApps {
-		installed[a.Name] = true
-	}
-	available := make([]availableAppRow, 0)
 	for _, spec := range apps.All() {
-		available = append(available, availableAppRow{
+		if seen[spec.Name] {
+			continue
+		}
+		rows = append(rows, adminAppRow{
 			Name:        spec.Name,
 			DisplayName: spec.DisplayName,
 			Description: spec.Description,
 			Subdomain:   spec.Subdomain,
-			Installed:   installed[spec.Name],
 			Installing:  p.hasRunningJob("install", spec.Name),
 		})
 	}
@@ -91,12 +95,11 @@ func (p *Portal) getAdmin(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	p.render(w, "admin.html", sess, map[string]any{
-		"Apps":      rows,
-		"Available": available,
-		"Users":     userRows,
-		"Jobs":      p.recentJobs(),
-		"Flash":     r.URL.Query().Get("flash"),
-		"Error":     r.URL.Query().Get("error"),
+		"Apps":  rows,
+		"Users": userRows,
+		"Jobs":  p.recentJobs(),
+		"Flash": r.URL.Query().Get("flash"),
+		"Error": r.URL.Query().Get("error"),
 	})
 }
 

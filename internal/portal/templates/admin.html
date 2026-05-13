@@ -11,56 +11,59 @@
 {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 
 <section class="panel">
-<h2>Installed apps</h2>
+<h2>Apps</h2>
 {{if not .Apps}}
-  <p style="color:var(--muted)">No apps registered.</p>
+  <p class="muted">No apps in the registry.</p>
 {{else}}
-<table>
-<thead><tr><th>Name</th><th>Subdomain</th><th>Backend</th><th>Gate</th><th>State</th><th>Actions</th></tr></thead>
+<table class="admin-apps">
+<thead><tr>
+  <th>App</th>
+  <th>Subdomain</th>
+  <th>Backend</th>
+  <th>State</th>
+  <th class="actions">Actions</th>
+</tr></thead>
 <tbody>
 {{range .Apps}}
 <tr>
-  <td><strong>{{.DisplayName}}</strong><div style="color:var(--muted);font-size:.8rem">{{.Name}}</div></td>
-  <td>{{.Settings.Subdomain}}</td>
-  <td>{{.Settings.Backend}}</td>
-  <td>{{if .Settings.OIDCGate}}🔒 portal{{else}}—{{end}}</td>
-  <td><span class="badge {{.State}}">{{.State}}</span></td>
-  <td class="actions">
-    {{if .Settings.ComposeFile}}
-      <form method="POST" action="/portal/admin/apps/{{.Name}}/start"><button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">start</button></form>
-      <form method="POST" action="/portal/admin/apps/{{.Name}}/stop"><button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">stop</button></form>
-    {{end}}
-    <form method="POST" action="/portal/admin/apps/{{.Name}}/uninstall"><button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">uninstall</button></form>
+  <td>
+    <div class="cell-stack">
+      <strong>{{.DisplayName}}</strong>
+      <span class="muted small">{{if .Description}}{{.Description}}{{else}}{{.Name}}{{end}}</span>
+    </div>
   </td>
-</tr>
-{{end}}
-</tbody>
-</table>
-{{end}}
-</section>
-
-<section class="panel">
-<h2>Add app</h2>
-{{if not .Available}}
-  <p style="color:var(--muted)">No supported apps registered in this binary.</p>
-{{else}}
-<table>
-<thead><tr><th>Name</th><th>Subdomain</th><th>Description</th><th>Action</th></tr></thead>
-<tbody>
-{{range .Available}}
-<tr>
-  <td><strong>{{.DisplayName}}</strong><div style="color:var(--muted);font-size:.8rem">{{.Name}}</div></td>
-  <td>{{.Subdomain}}</td>
-  <td>{{.Description}}</td>
+  <td>{{if .Installed}}{{.Settings.Subdomain}}{{else}}<span class="muted">{{.Subdomain}}</span>{{end}}</td>
+  <td>
+    {{if .Installed}}
+      <span class="mono small">{{.Settings.Backend}}</span>
+      {{if .Settings.OIDCGate}}<div class="muted small">🔒 portal gate</div>{{end}}
+    {{else}}
+      <span class="muted small">—</span>
+    {{end}}
+  </td>
+  <td>
+    {{if .Installed}}
+      <span class="status"><span class="dot {{.State}}"></span>{{.State}}</span>
+    {{else if .Installing}}
+      <span class="status"><span class="dot running"></span>installing</span>
+    {{else}}
+      <span class="muted small">not installed</span>
+    {{end}}
+  </td>
   <td class="actions">
     {{if .Installed}}
-      <span class="badge running">installed</span>
+      {{if .Settings.ComposeFile}}
+        <form method="POST" action="/portal/admin/apps/{{.Name}}/start"><button type="submit" class="secondary mini">start</button></form>
+        <form method="POST" action="/portal/admin/apps/{{.Name}}/stop"><button type="submit" class="secondary mini">stop</button></form>
+      {{end}}
+      <span class="action-sep"></span>
+      <form method="POST" action="/portal/admin/apps/{{.Name}}/uninstall"><button type="submit" class="danger mini">uninstall</button></form>
     {{else if .Installing}}
-      <span class="badge running">installing</span>
+      <span class="muted small">starting…</span>
     {{else}}
       <form method="POST" action="/portal/admin/apps">
         <input type="hidden" name="name" value="{{.Name}}">
-        <button type="submit" style="padding:.3rem .6rem;font-size:.8rem">install</button>
+        <button type="submit" class="mini">install</button>
       </form>
     {{end}}
   </td>
@@ -81,8 +84,8 @@
 <tr>
   <td><strong>{{.AppName}}</strong></td>
   <td>{{.Action}}</td>
-  <td><span class="badge {{.Status}}">{{.Status}}</span></td>
-  <td>{{.Message}}</td>
+  <td><span class="status"><span class="dot {{.Status}}"></span>{{.Status}}</span></td>
+  <td class="muted small">{{.Message}}</td>
 </tr>
 {{end}}
 </tbody>
@@ -93,38 +96,43 @@
 <section class="panel">
   <h2>Users</h2>
   <table>
-  <thead><tr><th>User</th><th>Email and role</th><th>Password</th><th>Actions</th></tr></thead>
+  <thead><tr><th>User</th><th>Email and role</th><th>Password</th><th class="actions">Actions</th></tr></thead>
   <tbody>
   {{range .Users}}
   <tr>
-    <td><strong>{{.Username}}</strong>{{if .IsSelf}} <span class="badge unknown">you</span>{{end}}</td>
+    <td>
+      <div class="cell-stack">
+        <strong>{{.Username}}</strong>
+        {{if .IsAdmin}}<span class="badge running">admin</span>{{else}}<span class="badge unknown">user</span>{{end}}
+        {{if .IsSelf}}<span class="muted small">you</span>{{end}}
+      </div>
+    </td>
     <td>
       <form method="POST" action="/portal/admin/users/{{.ID}}">
         <div class="inline-fields">
           <input type="email" name="email" value="{{.Email}}" placeholder="email@example.com">
           {{if .IsSelf}}
             <input type="hidden" name="is_admin" value="1">
-            <label style="margin:0;color:var(--text)"><input type="checkbox" checked disabled> admin</label>
+            <label class="check-inline"><input type="checkbox" checked disabled> admin</label>
           {{else}}
-            <label style="margin:0;color:var(--text)"><input type="checkbox" name="is_admin" value="1" {{if .IsAdmin}}checked{{end}}> admin</label>
+            <label class="check-inline"><input type="checkbox" name="is_admin" value="1" {{if .IsAdmin}}checked{{end}}> admin</label>
           {{end}}
         </div>
-        <button type="submit" class="secondary" style="margin-top:.5rem;padding:.3rem .6rem;font-size:.8rem">save</button>
+        <button type="submit" class="secondary mini" style="margin-top:.5rem">save</button>
       </form>
     </td>
     <td>
       <form method="POST" action="/portal/admin/users/{{.ID}}/password">
         <div class="inline-fields">
           <input type="password" name="password" minlength="8" placeholder="new password" required>
-          <button type="submit" class="secondary" style="padding:.3rem .6rem;font-size:.8rem">set</button>
+          <button type="submit" class="secondary mini">set</button>
         </div>
       </form>
     </td>
     <td class="actions">
-      {{if .IsAdmin}}<span class="badge running">admin</span>{{else}}<span class="badge unknown">user</span>{{end}}
       {{if not .IsSelf}}
-        <form method="POST" action="/portal/admin/users/{{.ID}}/delete" style="display:block;margin-top:.5rem">
-          <button type="submit" class="danger" style="padding:.3rem .6rem;font-size:.8rem">delete</button>
+        <form method="POST" action="/portal/admin/users/{{.ID}}/delete">
+          <button type="submit" class="danger mini">delete</button>
         </form>
       {{end}}
     </td>
@@ -137,7 +145,7 @@
           <label>Username<input type="text" name="username" required autocomplete="off"></label>
           <label>Email<input type="email" name="email" autocomplete="off"></label>
           <label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-          <label style="color:var(--text)"><input type="checkbox" name="is_admin" value="1"> admin</label>
+          <label class="check-inline"><input type="checkbox" name="is_admin" value="1"> admin</label>
           <button type="submit">Create user</button>
         </div>
       </form>
