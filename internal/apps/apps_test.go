@@ -523,6 +523,7 @@ func TestVaultwardenComposeRenders(t *testing.T) {
 		"SSO_CLIENT_ID: cid",
 		"SSO_CLIENT_SECRET: sec",
 		"ADMIN_TOKEN: abcd1234",
+		`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: "true"`,
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {

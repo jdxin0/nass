@@ -207,6 +207,9 @@ func TestAuthCodeFlow(t *testing.T) {
 	if idClaims["email"] != "alice@example.com" {
 		t.Fatalf("id token email: got %v want alice@example.com; claims=%+v", idClaims["email"], idClaims)
 	}
+	if idClaims["email_verified"] != true {
+		t.Fatalf("id token email_verified: got %v want true; claims=%+v", idClaims["email_verified"], idClaims)
+	}
 
 	// 5. Userinfo with the access token.
 	uiReq, _ := http.NewRequest("GET", ts.URL+"/userinfo", nil)
@@ -232,6 +235,9 @@ func TestAuthCodeFlow(t *testing.T) {
 	}
 	if ui["email"] != "alice@example.com" {
 		t.Fatalf("email: got %v want alice@example.com", ui["email"])
+	}
+	if ui["email_verified"] != true {
+		t.Fatalf("userinfo email_verified: got %v want true", ui["email_verified"])
 	}
 	groups, ok := ui["groups"].([]any)
 	if !ok {

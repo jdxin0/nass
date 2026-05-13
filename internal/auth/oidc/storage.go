@@ -285,6 +285,13 @@ func (s *Storage) fillUserinfo(ctx context.Context, info *oidc.UserInfo, subject
 			info.Subject = subject
 		case oidc.ScopeEmail:
 			info.Email = u.Email
+			// nass accounts are admin-provisioned (no self-service signup
+			// or unverified-email flow), so any email on record is
+			// effectively verified. Some RPs (e.g. Vaultwarden's SSO)
+			// refuse to log in without this claim.
+			if u.Email != "" {
+				info.EmailVerified = true
+			}
 		case oidc.ScopeProfile:
 			info.PreferredUsername = u.Username
 			info.Name = u.Username

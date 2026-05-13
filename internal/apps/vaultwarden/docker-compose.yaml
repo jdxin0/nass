@@ -18,6 +18,7 @@ services:
       SSO_SCOPES: "email profile"
       SSO_PKCE: "true"
       SSO_SIGNUPS_MATCH_EMAIL: "true"
+      SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: "true"
     ports:
       - "127.0.0.1:{{.BackendPort}}:80"
     volumes:
