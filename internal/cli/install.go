@@ -20,6 +20,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
 	_ "github.com/jdxin0/nass/internal/apps/linkwarden"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
+	_ "github.com/jdxin0/nass/internal/apps/paperless"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
 	"github.com/spf13/cobra"
 )

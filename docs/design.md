@@ -128,6 +128,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/qbittorrent"
     _ "github.com/jdxin0/nass/internal/apps/blinko"
     _ "github.com/jdxin0/nass/internal/apps/firefly"
+    _ "github.com/jdxin0/nass/internal/apps/paperless"
 )
 ```
 
@@ -305,6 +306,20 @@ short contention doesn't blow up.
   disabled by default.
 - PostUp only waits for the web service because all first-boot configuration is
   supplied through environment variables.
+
+### Paperless-ngx (`apps/paperless/`)
+
+- BackendPort `18040`, native OIDC via django-allauth's `openid_connect`
+  provider.
+- Redirect URI:
+  `https://paperless.<base_host>/accounts/oidc/nass/login/callback/`.
+- Compose runs Paperless plus Postgres and Redis. `PAPERLESS_APPS` toggles
+  the allauth provider on, and `PAPERLESS_SOCIALACCOUNT_PROVIDERS` carries
+  the full provider config (client id/secret + discovery URL) as a JSON
+  blob.
+- `PAPERLESS_SOCIAL_AUTO_SIGNUP=True` creates a Paperless user on the first
+  SSO login; the seeded `PAPERLESS_ADMIN_USER` stays as a break-glass
+  password account on `/admin/`.
 
 ### Firefly III (`apps/firefly/`)
 

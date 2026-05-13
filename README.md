@@ -26,6 +26,7 @@ These apps are bundled in the binary and can be installed with
 | Blinko | `blinko` | AI note-taking | Native OIDC |
 | Linkwarden | `linkwarden` | Bookmark and web archive manager | Native OIDC |
 | Firefly III | `firefly` | Personal finance manager | Portal gate (remote user) |
+| Paperless-ngx | `paperless` | Document management for scanned paper | Native OIDC |
 
 ```
                          ┌──────────── nass ────────────┐
@@ -94,6 +95,7 @@ sudo nass app install qbittorrent
 sudo nass app install blinko
 sudo nass app install linkwarden
 sudo nass app install firefly
+sudo nass app install paperless
 ```
 
 Now `https://nextcloud.example.com`, `https://jellyfin.example.com`, etc.
@@ -160,6 +162,7 @@ internal/
     jellyfin/
     linkwarden/
     immich/
+    paperless/
     qbittorrent/
   auth/
     oidc/             # built-in OpenID Connect provider

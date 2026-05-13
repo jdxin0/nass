@@ -17,6 +17,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
 	_ "github.com/jdxin0/nass/internal/apps/linkwarden"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
+	_ "github.com/jdxin0/nass/internal/apps/paperless"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
 	"github.com/jdxin0/nass/internal/db"
 	"github.com/jdxin0/nass/internal/orchestrator"
@@ -414,6 +415,63 @@ func TestJellyfinComposeRenders(t *testing.T) {
 		"/srv/nass/data/jellyfin/config:/config",
 		"/srv/nass/data/jellyfin/cache:/cache",
 		"JELLYFIN_PublishedServerUrl: https://jellyfin.nass.local",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestPaperlessComposeRenders(t *testing.T) {
+	s, ok := apps.Get("paperless")
+	if !ok {
+		t.Fatalf("paperless not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("paperless should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("paperless uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/paperless",
+		AdminPassword:    "abcd1234",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://paperless.nass.local/accounts/oidc/nass/login/callback/" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: ghcr.io/paperless-ngx/paperless-ngx:",
+		"image: postgres:16-alpine",
+		"image: redis:7-alpine",
+		"127.0.0.1:18040:8000",
+		"/srv/nass/data/paperless/data:/usr/src/paperless/data",
+		"/srv/nass/data/paperless/media:/usr/src/paperless/media",
+		"/srv/nass/data/paperless/consume:/usr/src/paperless/consume",
+		"/srv/nass/data/paperless/postgres:/var/lib/postgresql/data",
+		"/srv/nass/data/paperless/redis:/data",
+		"PAPERLESS_URL: https://paperless.nass.local",
+		`PAPERLESS_ALLOWED_HOSTS: "paperless.nass.local"`,
+		"PAPERLESS_CORS_ALLOWED_HOSTS: https://paperless.nass.local",
+		"PAPERLESS_DBHOST: postgres",
+		"PAPERLESS_DBPASS: abcd1234",
+		"PAPERLESS_REDIS: redis://redis:6379",
+		"PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect",
+		`"client_id":"cid"`,
+		`"secret":"sec"`,
+		`"server_url":"https://auth.nass.local/.well-known/openid-configuration"`,
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {
