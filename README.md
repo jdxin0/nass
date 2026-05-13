@@ -11,8 +11,20 @@ scripts** with one process that:
   file, run `docker compose up -d`, drive any first-boot setup the app needs.
 - Shows a portal dashboard with each app's tile, status, and link.
 
-Apps currently bundled in the binary: **Nextcloud**, **Jellyfin**, **Immich**,
-**Gitea**, **qBittorrent**, **Blinko**, **Linkwarden**.
+## Supported Apps
+
+These apps are bundled in the binary and can be installed with
+`nass app install <name>`:
+
+| App | Install name | Purpose | Auth mode |
+| --- | --- | --- | --- |
+| Nextcloud | `nextcloud` | Files, calendar, contacts | Native OIDC |
+| Jellyfin | `jellyfin` | Media server | Native OIDC |
+| Immich | `immich` | Photos and videos | Native OIDC |
+| Gitea | `gitea` | Lightweight Git hosting | Native OIDC |
+| qBittorrent | `qbittorrent` | Torrent client | Portal gate |
+| Blinko | `blinko` | AI note-taking | Native OIDC |
+| Linkwarden | `linkwarden` | Bookmark and web archive manager | Native OIDC |
 
 ```
                          ┌──────────── nass ────────────┐
