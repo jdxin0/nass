@@ -17,7 +17,10 @@ import (
 )
 
 const (
-	accessTokenTTL  = 5 * time.Minute
+	// 1h is the conventional OIDC access-token lifetime. Vaultwarden warns
+	// at <=5min ("Raise access_token lifetime to more than 5min.") and other
+	// RPs can be similarly twitchy about short-lived ATs, so don't go below.
+	accessTokenTTL  = time.Hour
 	refreshTokenTTL = 30 * 24 * time.Hour
 )
 
