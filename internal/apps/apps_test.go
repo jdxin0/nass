@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jdxin0/nass/internal/apps"
+	_ "github.com/jdxin0/nass/internal/apps/blinko"
 	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
@@ -178,6 +179,51 @@ func TestImmichComposeRenders(t *testing.T) {
 		"./immich-config.json:/immich-config.json",
 		"DB_HOSTNAME: immich_postgres",
 		"REDIS_HOSTNAME: immich_redis",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestBlinkoComposeRenders(t *testing.T) {
+	s, ok := apps.Get("blinko")
+	if !ok {
+		t.Fatalf("blinko not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("blinko should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("blinko uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/blinko",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://blinko.nass.local/api/auth/callback/nass" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: blinkospace/blinko:",
+		"image: postgres:14",
+		"127.0.0.1:11111:1111",
+		"/srv/nass/data/blinko/app:/app/.blinko",
+		"/srv/nass/data/blinko/postgres:/var/lib/postgresql/data",
+		"NEXTAUTH_URL: https://blinko.nass.local",
+		"NEXT_PUBLIC_BASE_URL: https://blinko.nass.local",
+		"DATABASE_URL: postgresql://postgres:postgres@blinko_postgres:5432/postgres",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {

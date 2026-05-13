@@ -13,6 +13,7 @@ import (
 	"github.com/jdxin0/nass/internal/orchestrator"
 
 	// Side-effect imports register each app's Spec in apps.reg.
+	_ "github.com/jdxin0/nass/internal/apps/blinko"
 	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"

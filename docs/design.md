@@ -125,6 +125,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/jellyfin"
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
     _ "github.com/jdxin0/nass/internal/apps/qbittorrent"
+    _ "github.com/jdxin0/nass/internal/apps/blinko"
 )
 ```
 
@@ -171,8 +172,9 @@ The install pipeline (`internal/apps/install.go`) is fixed:
 7. **`Spec.PostUp(ctx, ic)`** — runs *after* containers are up. This is
    where apps drive their first-boot setup: Nextcloud installs the `user_oidc`
    plugin, Jellyfin runs the startup wizard and sideloads the SSO plugin,
-   Immich does admin signup, Gitea adds the nass OIDC source, qBittorrent
-   patches `qBittorrent.conf` for proxy compatibility.
+   Immich does admin signup, Gitea adds the nass OIDC source, Blinko seeds its
+   OAuth provider config, and qBittorrent patches `qBittorrent.conf` for proxy
+   compatibility.
 
 The pipeline is straight-line and not idempotent yet. Re-running
 `nass app install` on an already-installed app fails (the OIDC client already
@@ -271,6 +273,16 @@ short contention doesn't blow up.
   is doing both), then **`SIGKILL`s** the container before writing the
   patched file. Graceful shutdown would have qBittorrent flush its in-memory
   state and overwrite our edits.
+
+### Blinko (`apps/blinko/`)
+
+- BackendPort `11111`, native OIDC via Blinko's custom OAuth2 provider support.
+- Redirect URI: `https://blinko.<base_host>/api/auth/callback/nass`.
+- Compose runs Blinko plus Postgres. `NEXTAUTH_URL` and
+  `NEXT_PUBLIC_BASE_URL` are set to the public app URL.
+- PostUp waits for Blinko's first boot, writes the `oauth2Providers` config row
+  in Blinko's Postgres database with nass as a custom provider, then restarts
+  the stack so Blinko reloads its OAuth strategies.
 
 ## Request flow examples
 

@@ -12,7 +12,7 @@ scripts** with one process that:
 - Shows a portal dashboard with each app's tile, status, and link.
 
 Apps currently bundled in the binary: **Nextcloud**, **Jellyfin**, **Immich**,
-**Gitea**, **qBittorrent**.
+**Gitea**, **qBittorrent**, **Blinko**.
 
 ```
                          ┌──────────── nass ────────────┐
@@ -78,6 +78,7 @@ sudo nass app install jellyfin
 sudo nass app install immich
 sudo nass app install gitea
 sudo nass app install qbittorrent
+sudo nass app install blinko
 ```
 
 Now `https://nextcloud.example.com`, `https://jellyfin.example.com`, etc.
@@ -136,6 +137,7 @@ resolved against the directory of `nass.toml`.
 cmd/nass/             # binary entry point
 internal/
   apps/               # app registry + install pipeline
+    blinko/
     nextcloud/        # one package per app
     gitea/
     jellyfin/
