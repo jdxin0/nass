@@ -53,6 +53,11 @@ func serveCmd() *cobra.Command {
 
 			users := auth.NewStore(d)
 
+			// Shared brute-force throttle. 10 failed attempts per IP+username
+			// per minute is generous for typo'd passwords but tight enough that
+			// online credential stuffing tops out at ~600 guesses/hour/IP.
+			loginThrottle := auth.NewLoginThrottle(10, time.Minute)
+
 			// Portal: sessions cookie scoped to base_host so all subdomains see it.
 			sessions := portal.NewSessionStore(d, users, cfg.Server.BaseHost)
 			sessions.Insecure = devMode
@@ -68,6 +73,7 @@ func serveCmd() *cobra.Command {
 			portalSrv.OIDCIssuer = cfg.OIDC.Issuer
 			portalSrv.BackendPortRange = cfg.Orchestrator.BackendPortRange
 			portalSrv.JobLog = cmd.OutOrStderr()
+			portalSrv.LoginThrottle = loginThrottle
 
 			authSrv, err := oidc.New(d, users, oidc.Options{
 				Issuer:        cfg.OIDC.Issuer,
@@ -81,15 +87,19 @@ func serveCmd() *cobra.Command {
 			}
 			// Hook portal SSO into the OIDC /login.
 			authSrv.Login.SetPortal(portalSrv)
+			authSrv.Login.SetThrottle(loginThrottle)
 
 			gate := portal.NewGate(sessions, portalHostURL(cfg, devMode))
 
 			// Build the host router and register the fixed (non-app) routes.
+			// Both auth and portal serve nass-owned HTML/JSON, so they get the
+			// strict first-party CSP + nosniff + frame-ancestors set. Proxied
+			// apps are deliberately not wrapped — apps set their own.
 			router := proxy.New()
-			router.AddRoute(authHost(cfg), authSrv.Handler())
+			router.AddRoute(authHost(cfg), proxy.FirstPartyHeaders(authSrv.Handler()))
 			portalMux := http.NewServeMux()
 			portalSrv.Mount(portalMux)
-			router.AddRoute(portalHost(cfg), portalMux)
+			router.AddRoute(portalHost(cfg), proxy.FirstPartyHeaders(portalMux))
 
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
@@ -213,5 +223,7 @@ func buildHTTPSServer(cfg *config.Config, addr string, h http.Handler, insecureN
 	if err != nil {
 		return nil, err
 	}
-	return proxy.HTTPSServer(addr, h, tlsConf), nil
+	// Apply HSTS to every HTTPS response. Host-scoped header, safe to add
+	// in front of the host router (proxied apps see it too).
+	return proxy.HTTPSServer(addr, proxy.HSTS(h), tlsConf), nil
 }

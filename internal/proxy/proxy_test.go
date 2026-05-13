@@ -174,6 +174,40 @@ func TestWebsocketPassThrough(t *testing.T) {
 	}
 }
 
+// TestServerStripsRemoteIdentityHeaders verifies that a client cannot smuggle
+// the trusted Remote-* headers past the front-door router. Backends that read
+// these (Firefly's remote_user_guard) must only see them when set by the gate.
+func TestServerStripsRemoteIdentityHeaders(t *testing.T) {
+	var seen http.Header
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+	}))
+	defer backend.Close()
+
+	router := proxy.New()
+	router.AddRoute("app.example.com", proxy.NewReverseProxy(proxy.BackendOptions{Backend: mustURL(t, backend.URL)}))
+	front := httptest.NewServer(router)
+	defer front.Close()
+
+	req, _ := http.NewRequest("GET", front.URL+"/", nil)
+	req.Host = "app.example.com"
+	req.Header.Set("Remote-User", "evil")
+	req.Header.Set("Remote-Email", "evil@example.com")
+	req.Header.Set("Remote-Name", "evil")
+	req.Header.Set("Remote-Groups", "admin")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	resp.Body.Close()
+
+	for _, h := range []string{"Remote-User", "Remote-Email", "Remote-Name", "Remote-Groups"} {
+		if got := seen.Get(h); got != "" {
+			t.Errorf("%s should have been stripped, got %q", h, got)
+		}
+	}
+}
+
 func TestLoadEnabled(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	d, err := db.Open(dbPath)

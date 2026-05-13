@@ -6,8 +6,11 @@ services:
     environment:
       DOMAIN: {{.PublicURL}}
       ROCKET_PORT: "80"
+      # SIGNUPS_ALLOWED must stay true: SSO_ONLY blocks the password sign-up
+      # flow, but the SSO sign-up flow also requires SIGNUPS_ALLOWED=true to
+      # create the user row on first login. Access is gated by the nass IdP.
       SIGNUPS_ALLOWED: "true"
-      INVITATIONS_ALLOWED: "true"
+      INVITATIONS_ALLOWED: "false"
       WEBSOCKET_ENABLED: "true"
       ADMIN_TOKEN: {{.AdminPassword}}
       SSO_ENABLED: "true"

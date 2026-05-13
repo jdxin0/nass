@@ -27,6 +27,7 @@ services:
       PAPERLESS_ADMIN_MAIL: admin@{{.BaseHost}}
       PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect,nass_sso
       PAPERLESS_SOCIAL_AUTO_SIGNUP: "True"
+      PAPERLESS_ACCOUNT_ALLOW_SIGNUPS: "False"
       PAPERLESS_ACCOUNT_DEFAULT_HTTP_PROTOCOL: https
       PAPERLESS_SOCIALACCOUNT_PROVIDERS: '{"openid_connect":{"APPS":[{"provider_id":"nass","name":"nass","client_id":"{{.OIDCClientID}}","secret":"{{.OIDCClientSecret}}","settings":{"server_url":"{{.OIDCDiscoveryURL}}"}}]}}'
     ports:

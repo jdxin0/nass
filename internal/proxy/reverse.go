@@ -71,12 +71,14 @@ func NewReverseProxy(opts BackendOptions) http.Handler {
 	return rp
 }
 
+// scheme returns the scheme nass terminated. We deliberately do NOT honour
+// an inbound X-Forwarded-Proto header: nass is the front door, so the only
+// trustworthy signal is whether the TCP connection used TLS. A client that
+// sets X-Forwarded-Proto: https to a plain :80 listener would otherwise
+// trick downstream apps into trusting an unencrypted hop.
 func scheme(r *http.Request) string {
 	if r.TLS != nil {
 		return "https"
-	}
-	if v := r.Header.Get("X-Forwarded-Proto"); v != "" {
-		return v
 	}
 	return "http"
 }

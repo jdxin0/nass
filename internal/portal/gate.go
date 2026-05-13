@@ -56,13 +56,10 @@ func (g *Gate) Wrap(h http.Handler) http.Handler {
 }
 
 func requestURL(r *http.Request) string {
-	scheme := "https"
-	if r.TLS == nil {
-		if v := r.Header.Get("X-Forwarded-Proto"); v != "" {
-			scheme = v
-		} else {
-			scheme = "http"
-		}
+	// nass terminates TLS itself; trust the connection, not a client header.
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
 	}
 	return scheme + "://" + r.Host + r.URL.RequestURI()
 }

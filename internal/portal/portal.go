@@ -30,6 +30,10 @@ type Portal struct {
 	Sessions     *SessionStore
 	Orchestrator *orchestrator.Orchestrator
 
+	// LoginThrottle slows down brute-force attempts. May be nil (no
+	// throttling). Wired in serve.go.
+	LoginThrottle *auth.LoginThrottle
+
 	BaseHost  string
 	SiteTitle string
 	HTTPS     bool // false in dev: portal links use http://

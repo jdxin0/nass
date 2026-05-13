@@ -60,6 +60,15 @@ func (s *Server) Hosts() []string {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Defense in depth: never let a remote client smuggle the identity
+	// headers the OIDC gate uses to authenticate to backends like Firefly.
+	// The gate re-sets them from the session for OIDC-gated routes; for
+	// every other route, the backend sees them absent.
+	r.Header.Del("Remote-User")
+	r.Header.Del("Remote-Email")
+	r.Header.Del("Remote-Name")
+	r.Header.Del("Remote-Groups")
+
 	host := strings.ToLower(stripPort(r.Host))
 	s.mu.RLock()
 	h, ok := s.routes[host]

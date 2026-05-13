@@ -5,8 +5,10 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/zitadel/oidc/v3/pkg/op"
 
@@ -38,6 +40,7 @@ type Login struct {
 	callback          func(ctx context.Context, authReqID string) string
 	issuerInterceptor *op.IssuerInterceptor
 	portal            PortalSession
+	throttle          *auth.LoginThrottle
 }
 
 func NewLogin(storage *Storage, users *auth.Store, callback func(context.Context, string) string, ii *op.IssuerInterceptor) *Login {
@@ -47,6 +50,10 @@ func NewLogin(storage *Storage, users *auth.Store, callback func(context.Context
 // SetPortal enables SSO via the portal's session cookie. Without this,
 // every /authorize bounce shows the embedded login form.
 func (l *Login) SetPortal(p PortalSession) { l.portal = p }
+
+// SetThrottle wires a brute-force throttle shared with the portal. May be
+// nil (no throttling).
+func (l *Login) SetThrottle(t *auth.LoginThrottle) { l.throttle = t }
 
 // Mount adds /login routes to mux.
 func (l *Login) Mount(mux *http.ServeMux) {
@@ -90,6 +97,10 @@ func (l *Login) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Login) post(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -102,16 +113,53 @@ func (l *Login) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	key := throttleKey(r, username)
+	if !l.throttle.Allow(key) {
+		wait := l.throttle.RetryAfter(key)
+		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", wait.Round(time.Second).Seconds()))
+		render(w, loginPage{AuthRequestID: id, Error: "too many attempts; try again later"})
+		return
+	}
+
 	user, err := l.users.Verify(r.Context(), username, password)
 	if err != nil {
+		l.throttle.Failed(key)
 		render(w, loginPage{AuthRequestID: id, Error: "invalid username or password"})
 		return
 	}
+	l.throttle.Success(key)
 	if err := markAuthRequestComplete(r.Context(), l.storage.db, id, user.ID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, l.callback(r.Context(), id), http.StatusFound)
+}
+
+// sameOrigin permits requests whose Origin/Referer matches r.Host, and also
+// permits requests that send neither header (curl). Combined with the auth
+// request id being a fresh, unguessable UUID this gives meaningful CSRF
+// protection without breaking automation.
+func sameOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		origin = r.Header.Get("Referer")
+	}
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return u.Host == r.Host
+}
+
+func throttleKey(r *http.Request, username string) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	return host + "|" + username
 }
 
 func render(w http.ResponseWriter, page loginPage) {
