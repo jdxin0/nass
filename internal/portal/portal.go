@@ -7,6 +7,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -43,6 +44,10 @@ type Portal struct {
 	// Reload, when set, is called after admin mutations to re-sync the live
 	// proxy with the apps table.
 	Reload func(ctx context.Context) error
+
+	// JobLog receives one-line app operation diagnostics. nass serve wires this
+	// to stderr so failed background installs can be traced from service logs.
+	JobLog io.Writer
 
 	jobsMu sync.Mutex
 	jobs   []*appJob

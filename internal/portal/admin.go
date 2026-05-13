@@ -423,20 +423,38 @@ func (p *Portal) startAppJob(action, name string, fn func(context.Context) error
 		p.jobs = p.jobs[:20]
 	}
 	p.jobsMu.Unlock()
+	p.logAppJob("started", job, nil)
 
 	go func() {
 		err := fn(context.Background())
 		p.jobsMu.Lock()
-		defer p.jobsMu.Unlock()
 		job.FinishedAt = time.Now()
 		if err != nil {
 			job.Status = "error"
 			job.Message = err.Error()
+			p.jobsMu.Unlock()
+			p.logAppJob("failed", job, err)
 			return
 		}
 		job.Status = "done"
 		job.Message = "completed"
+		p.jobsMu.Unlock()
+		p.logAppJob("completed", job, nil)
 	}()
+}
+
+func (p *Portal) logAppJob(event string, job *appJob, err error) {
+	if p.JobLog == nil {
+		return
+	}
+	duration := time.Since(job.StartedAt).Round(time.Millisecond)
+	if err != nil {
+		fmt.Fprintf(p.JobLog, "app job %s action=%s app=%s duration=%s error=%v\n",
+			event, job.Action, job.AppName, duration, err)
+		return
+	}
+	fmt.Fprintf(p.JobLog, "app job %s action=%s app=%s duration=%s\n",
+		event, job.Action, job.AppName, duration)
 }
 
 func (p *Portal) recentJobs() []appJob {

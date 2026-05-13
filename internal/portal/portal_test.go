@@ -1,6 +1,7 @@
 package portal_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -187,6 +188,44 @@ func TestAdminAddAppPersists(t *testing.T) {
 	})
 	if len(got) != 1 || got[0].Name != "nextcloud" || got[0].Settings.Backend != "http://127.0.0.1:18080" {
 		t.Fatalf("unexpected: %+v", got)
+	}
+}
+
+func TestAdminAddAppLogsBackgroundFailure(t *testing.T) {
+	f := newFixture(t)
+	jar, _ := cookiejar.New(nil)
+	hc := &http.Client{Jar: jar}
+	var logs bytes.Buffer
+	f.portal.JobLog = &logs
+	f.portal.InstallApp = func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error) {
+		return nil, errors.New("post-up: seed blinko oauth config: relation config does not exist")
+	}
+
+	if _, err := hc.PostForm(f.server.URL+"/portal/login",
+		url.Values{"username": {"admin"}, "password": {"supersecretpw"}, "next": {"/"}}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := hc.PostForm(f.server.URL+"/portal/admin/apps", url.Values{
+		"name": {"blinko"},
+	})
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	resp.Body.Close()
+
+	waitFor(t, func() bool {
+		return strings.Contains(logs.String(), "post-up: seed blinko oauth config")
+	})
+	got := logs.String()
+	for _, want := range []string{
+		"app job failed",
+		"action=install",
+		"app=blinko",
+		"post-up: seed blinko oauth config: relation config does not exist",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("log missing %q in:\n%s", want, got)
+		}
 	}
 }
 
