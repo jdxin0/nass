@@ -19,6 +19,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
 	_ "github.com/jdxin0/nass/internal/apps/paperless"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
+	_ "github.com/jdxin0/nass/internal/apps/vaultwarden"
 	"github.com/jdxin0/nass/internal/db"
 	"github.com/jdxin0/nass/internal/orchestrator"
 )
@@ -474,6 +475,54 @@ func TestPaperlessComposeRenders(t *testing.T) {
 		`"client_id":"cid"`,
 		`"secret":"sec"`,
 		`"server_url":"https://auth.nass.local/.well-known/openid-configuration"`,
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestVaultwardenComposeRenders(t *testing.T) {
+	s, ok := apps.Get("vaultwarden")
+	if !ok {
+		t.Fatalf("vaultwarden not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("vaultwarden should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("vaultwarden uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/vaultwarden",
+		AdminPassword:    "abcd1234",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://vault.nass.local/identity/connect/oidc-signin" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: vaultwarden/server:",
+		"127.0.0.1:18050:80",
+		"/srv/nass/data/vaultwarden/data:/data",
+		"DOMAIN: https://vault.nass.local",
+		`SSO_ENABLED: "true"`,
+		`SSO_ONLY: "true"`,
+		"SSO_AUTHORITY: https://auth.nass.local",
+		"SSO_CLIENT_ID: cid",
+		"SSO_CLIENT_SECRET: sec",
+		"ADMIN_TOKEN: abcd1234",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {

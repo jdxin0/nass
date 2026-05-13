@@ -1,0 +1,27 @@
+services:
+  vaultwarden:
+    container_name: {{.Name}}
+    image: vaultwarden/server:latest
+    restart: unless-stopped
+    environment:
+      DOMAIN: {{.PublicURL}}
+      ROCKET_PORT: "80"
+      SIGNUPS_ALLOWED: "true"
+      INVITATIONS_ALLOWED: "true"
+      WEBSOCKET_ENABLED: "true"
+      ADMIN_TOKEN: {{.AdminPassword}}
+      SSO_ENABLED: "true"
+      SSO_ONLY: "true"
+      SSO_AUTHORITY: {{.OIDCIssuer}}
+      SSO_CLIENT_ID: {{.OIDCClientID}}
+      SSO_CLIENT_SECRET: {{.OIDCClientSecret}}
+      SSO_SCOPES: "email profile"
+      SSO_PKCE: "true"
+      SSO_SIGNUPS_MATCH_EMAIL: "true"
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:80"
+    volumes:
+      - {{.DataRoot}}/data:/data
+    extra_hosts:
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"

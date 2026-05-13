@@ -129,6 +129,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/blinko"
     _ "github.com/jdxin0/nass/internal/apps/firefly"
     _ "github.com/jdxin0/nass/internal/apps/paperless"
+    _ "github.com/jdxin0/nass/internal/apps/vaultwarden"
 )
 ```
 
@@ -320,6 +321,21 @@ short contention doesn't blow up.
 - `PAPERLESS_SOCIAL_AUTO_SIGNUP=True` creates a Paperless user on the first
   SSO login; the seeded `PAPERLESS_ADMIN_USER` stays as a break-glass
   password account on `/admin/`.
+
+### Vaultwarden (`apps/vaultwarden/`)
+
+- BackendPort `18050`, native OIDC via Vaultwarden's built-in SSO support.
+- Redirect URI:
+  `https://vault.<base_host>/identity/connect/oidc-signin` (hardcoded by
+  Vaultwarden; derived from `DOMAIN`).
+- Compose runs the single Vaultwarden container with embedded SQLite — no
+  external database. SSO is wired through `SSO_ENABLED=true`,
+  `SSO_AUTHORITY` (the nass issuer; Vaultwarden appends
+  `/.well-known/openid-configuration` itself), `SSO_CLIENT_ID`, and
+  `SSO_CLIENT_SECRET`, with `SSO_PKCE=true` for PKCE-protected code exchange.
+- `SSO_ONLY=true` disables the master-password login form; users still set a
+  master password on first sign-in for client-side vault encryption.
+  `ADMIN_TOKEN` (the generated admin password) gates the `/admin` panel.
 
 ### Firefly III (`apps/firefly/`)
 
