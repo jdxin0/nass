@@ -95,63 +95,52 @@
 
 <section class="panel">
   <h2>Users</h2>
-  <table>
-  <thead><tr><th>User</th><th>Email and role</th><th>Password</th><th class="actions">Actions</th></tr></thead>
-  <tbody>
+  <ul class="user-list">
   {{range .Users}}
-  <tr>
-    <td>
-      <div class="cell-stack">
-        <strong>{{.Username}}</strong>
-        {{if .IsAdmin}}<span class="badge running">admin</span>{{else}}<span class="badge unknown">user</span>{{end}}
-        {{if .IsSelf}}<span class="muted small">you</span>{{end}}
+    <li class="user-row">
+      <div class="user-ident">
+        <div class="user-avatar">{{printf "%.1s" .Username}}</div>
+        <div class="cell-stack">
+          <strong>{{.Username}}</strong>
+          <span class="muted small">{{if .IsSelf}}you · {{end}}{{if .IsAdmin}}admin{{else}}user{{end}}</span>
+        </div>
       </div>
-    </td>
-    <td>
-      <form method="POST" action="/portal/admin/users/{{.ID}}">
-        <div class="inline-fields">
-          <input type="email" name="email" value="{{.Email}}" placeholder="email@example.com">
-          {{if .IsSelf}}
-            <input type="hidden" name="is_admin" value="1">
-            <label class="check-inline"><input type="checkbox" checked disabled> admin</label>
-          {{else}}
-            <label class="check-inline"><input type="checkbox" name="is_admin" value="1" {{if .IsAdmin}}checked{{end}}> admin</label>
-          {{end}}
-        </div>
-        <button type="submit" class="secondary mini" style="margin-top:.5rem">save</button>
+      <form class="user-edit" method="POST" action="/portal/admin/users/{{.ID}}">
+        <input type="email" name="email" value="{{.Email}}" placeholder="email@example.com">
+        {{if .IsSelf}}
+          <input type="hidden" name="is_admin" value="1">
+          <label class="check-inline" title="You can't remove admin from yourself"><input type="checkbox" checked disabled> admin</label>
+        {{else}}
+          <label class="check-inline"><input type="checkbox" name="is_admin" value="1" {{if .IsAdmin}}checked{{end}}> admin</label>
+        {{end}}
+        <button type="submit" class="secondary mini">save</button>
       </form>
-    </td>
-    <td>
-      <form method="POST" action="/portal/admin/users/{{.ID}}/password">
-        <div class="inline-fields">
-          <input type="password" name="password" minlength="8" placeholder="new password" required>
-          <button type="submit" class="secondary mini">set</button>
-        </div>
-      </form>
-    </td>
-    <td class="actions">
-      {{if not .IsSelf}}
-        <form method="POST" action="/portal/admin/users/{{.ID}}/delete">
-          <button type="submit" class="danger mini">delete</button>
-        </form>
-      {{end}}
-    </td>
-  </tr>
+      <div class="user-actions">
+        <details class="reveal">
+          <summary class="secondary mini">change password</summary>
+          <form class="reveal-body" method="POST" action="/portal/admin/users/{{.ID}}/password">
+            <input type="password" name="password" minlength="8" placeholder="new password (min 8)" required>
+            <button type="submit" class="secondary mini">set</button>
+          </form>
+        </details>
+        {{if not .IsSelf}}
+          <form method="POST" action="/portal/admin/users/{{.ID}}/delete">
+            <button type="submit" class="danger mini">delete</button>
+          </form>
+        {{end}}
+      </div>
+    </li>
   {{end}}
-  <tr>
-    <td colspan="4">
-      <form method="POST" action="/portal/admin/users">
-        <div class="user-row-fields">
-          <label>Username<input type="text" name="username" required autocomplete="off"></label>
-          <label>Email<input type="email" name="email" autocomplete="off"></label>
-          <label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-          <label class="check-inline"><input type="checkbox" name="is_admin" value="1"> admin</label>
-          <button type="submit">Create user</button>
-        </div>
-      </form>
-    </td>
-  </tr>
-  </tbody>
-  </table>
+  </ul>
+
+  <form class="user-create" method="POST" action="/portal/admin/users">
+    <div class="user-create-grid">
+      <label>Username<input type="text" name="username" required autocomplete="off"></label>
+      <label>Email<input type="email" name="email" autocomplete="off"></label>
+      <label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+      <label class="check-inline"><input type="checkbox" name="is_admin" value="1"> admin</label>
+      <button type="submit">Create user</button>
+    </div>
+  </form>
 </section>
 {{end}}
