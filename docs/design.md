@@ -256,7 +256,7 @@ short contention doesn't blow up.
 ### Immich (`apps/immich/`)
 
 - BackendPort `18283`. Compose stack is four services: server, ML worker,
-  Postgres, Redis.
+  Postgres with VectorChord, and Valkey.
 - Native OIDC via `IMMICH_CONFIG_FILE`. **PreUp** writes
   `immich-config.json` next to the compose file (mounted in as
   `/immich-config.json`). The config is built from a Go struct and JSON-

@@ -188,7 +188,7 @@ func TestNextcloudComposeRenders(t *testing.T) {
 	}
 	body, _ := os.ReadFile(ic.ComposeFile)
 	for _, want := range []string{
-		"image: nextcloud:",
+		"image: nextcloud:33.0.3",
 		"OVERWRITEHOST: nextcloud.nass.local",
 		"OVERWRITECLIURL: https://nextcloud.nass.local",
 		"NEXTCLOUD_ADMIN_PASSWORD: abcd1234",
@@ -228,8 +228,11 @@ func TestImmichComposeRenders(t *testing.T) {
 	}
 	body, _ := os.ReadFile(ic.ComposeFile)
 	for _, want := range []string{
-		"image: ghcr.io/immich-app/immich-server:",
-		"image: ghcr.io/immich-app/immich-machine-learning:",
+		"image: ghcr.io/immich-app/immich-server:v2.7.5",
+		"image: ghcr.io/immich-app/immich-machine-learning:v2.7.5",
+		"image: docker.io/valkey/valkey:9",
+		"image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0",
+		"POSTGRES_INITDB_ARGS: '--data-checksums'",
 		"127.0.0.1:18283:2283",
 		"/srv/nass/data/immich/upload:/usr/src/app/upload",
 		"/srv/nass/data/immich/ml-cache:/cache",

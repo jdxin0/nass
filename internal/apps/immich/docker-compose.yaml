@@ -1,7 +1,7 @@
 services:
   immich-server:
     container_name: {{.Name}}_server
-    image: ghcr.io/immich-app/immich-server:v1.125.7
+    image: ghcr.io/immich-app/immich-server:v2.7.5
     restart: unless-stopped
     depends_on:
       - redis
@@ -28,7 +28,7 @@ services:
 
   immich-machine-learning:
     container_name: {{.Name}}_machine_learning
-    image: ghcr.io/immich-app/immich-machine-learning:v1.125.7
+    image: ghcr.io/immich-app/immich-machine-learning:v2.7.5
     restart: unless-stopped
     environment:
       DB_HOSTNAME: {{.Name}}_postgres
@@ -41,16 +41,17 @@ services:
 
   redis:
     container_name: {{.Name}}_redis
-    image: docker.io/redis:6.2-alpine@sha256:905c4ee67b8e0aa955331960d2aa745781e6bd89afc44a8584bfd13bc890f0ae
+    image: docker.io/valkey/valkey:9
     restart: unless-stopped
 
   database:
     container_name: {{.Name}}_postgres
-    image: tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
       POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: '--data-checksums'
     volumes:
       - {{.DataRoot}}/postgres:/var/lib/postgresql/data
