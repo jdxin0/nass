@@ -95,6 +95,7 @@ sudo nass app install immich
 sudo nass app install gitea
 sudo nass app install qbittorrent
 sudo nass app install blinko
+sudo nass app install calibreweb
 sudo nass app install linkwarden
 sudo nass app install firefly
 sudo nass app install paperless
@@ -309,7 +310,7 @@ and every OIDC-using app will need its client re-provisioned.
 nass app available
 
 # Stop everything but keep data:
-for app in nextcloud jellyfin immich gitea qbittorrent blinko linkwarden firefly paperless vaultwarden miniflux jitsi; do
+for app in nextcloud jellyfin immich gitea qbittorrent blinko calibreweb linkwarden firefly paperless vaultwarden miniflux jitsi; do
   sudo docker compose -f /srv/nass/apps/$app/docker-compose.yaml stop
 done
 

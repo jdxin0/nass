@@ -1,0 +1,22 @@
+services:
+  calibreweb:
+    container_name: {{.Name}}
+    image: crocodilestick/calibre-web-automated:latest
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - CALIBRE_DBPATH=/config
+      - CWA_PORT_OVERRIDE=8083
+      - NETWORK_SHARE_MODE=false
+      - TRUSTED_PROXY_COUNT=1
+    volumes:
+      - {{.DataRoot}}/config:/config
+      - {{.DataRoot}}/ingest:/cwa-book-ingest
+      - {{.DataRoot}}/library:/calibre-library
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:8083"
+    extra_hosts:
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jdxin0/nass/internal/apps"
 	_ "github.com/jdxin0/nass/internal/apps/blinko"
+	_ "github.com/jdxin0/nass/internal/apps/calibreweb"
 	_ "github.com/jdxin0/nass/internal/apps/firefly"
 	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
@@ -281,6 +282,55 @@ func TestBlinkoComposeRenders(t *testing.T) {
 		"NEXTAUTH_URL: https://blinko.nass.local",
 		"NEXT_PUBLIC_BASE_URL: https://blinko.nass.local",
 		"DATABASE_URL: postgresql://postgres:postgres@blinko_postgres:5432/postgres",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestCalibreWebAutomatedComposeRenders(t *testing.T) {
+	s, ok := apps.Get("calibreweb")
+	if !ok {
+		t.Fatalf("calibreweb not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("calibreweb should use native OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("calibreweb should use native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/calibreweb",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://calibre.nass.local/login/generic/authorized" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: crocodilestick/calibre-web-automated:",
+		"127.0.0.1:18083:8083",
+		"/srv/nass/data/calibreweb/config:/config",
+		"/srv/nass/data/calibreweb/ingest:/cwa-book-ingest",
+		"/srv/nass/data/calibreweb/library:/calibre-library",
+		"- PUID=1000",
+		"- PGID=1000",
+		"- TZ=Etc/UTC",
+		"- CALIBRE_DBPATH=/config",
+		"- CWA_PORT_OVERRIDE=8083",
+		"- NETWORK_SHARE_MODE=false",
+		"- TRUSTED_PROXY_COUNT=1",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {

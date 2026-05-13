@@ -24,6 +24,7 @@ These apps are bundled in the binary and can be installed with
 | Gitea | `gitea` | Lightweight Git hosting | Native OIDC |
 | qBittorrent | `qbittorrent` | Torrent client | Portal gate |
 | Blinko | `blinko` | AI note-taking | Native OIDC |
+| Calibre-Web Automated | `calibreweb` | Automated e-book library manager | Native OIDC |
 | Linkwarden | `linkwarden` | Bookmark and web archive manager | Native OIDC |
 | Firefly III | `firefly` | Personal finance manager | Portal gate (remote user) |
 | Paperless-ngx | `paperless` | Document management for scanned paper | Native OIDC |
@@ -96,6 +97,7 @@ sudo nass app install immich
 sudo nass app install gitea
 sudo nass app install qbittorrent
 sudo nass app install blinko
+sudo nass app install calibreweb
 sudo nass app install linkwarden
 sudo nass app install firefly
 sudo nass app install paperless
@@ -164,6 +166,7 @@ cmd/nass/             # binary entry point
 internal/
   apps/               # app registry + install pipeline
     blinko/
+    calibreweb/
     firefly/
     nextcloud/        # one package per app
     gitea/

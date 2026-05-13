@@ -129,6 +129,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
     _ "github.com/jdxin0/nass/internal/apps/qbittorrent"
     _ "github.com/jdxin0/nass/internal/apps/blinko"
+    _ "github.com/jdxin0/nass/internal/apps/calibreweb"
     _ "github.com/jdxin0/nass/internal/apps/firefly"
     _ "github.com/jdxin0/nass/internal/apps/paperless"
     _ "github.com/jdxin0/nass/internal/apps/vaultwarden"
@@ -294,6 +295,17 @@ short contention doesn't blow up.
 - PostUp waits for Blinko's first boot, writes the `oauth2Providers` config row
   in Blinko's Postgres database with nass as a custom provider, then restarts
   the stack so Blinko reloads its OAuth strategies.
+
+### Calibre-Web Automated (`apps/calibreweb/`)
+
+- BackendPort `18083`, native OIDC via CWA's generic OAuth/OIDC provider.
+- Redirect URI: `https://calibre.<base_host>/login/generic/authorized`.
+- Compose runs `crocodilestick/calibre-web-automated`, publishing container
+  port `8083` only on localhost. Data is split into `/config`,
+  `/cwa-book-ingest`, and `/calibre-library`.
+- PostUp waits for CWA's first boot, updates `/config/app.db` to enable OAuth
+  login with the generic provider and nass discovery URL, then restarts the
+  stack so CWA registers the OAuth blueprint with the seeded settings.
 
 ### Linkwarden (`apps/linkwarden/`)
 
