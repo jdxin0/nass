@@ -15,8 +15,11 @@ services:
       PAPERLESS_DBPASS: {{.AdminPassword}}
       PAPERLESS_SECRET_KEY: {{.AdminPassword}}
       PAPERLESS_URL: {{.PublicURL}}
-      PAPERLESS_ALLOWED_HOSTS: "{{.Subdomain}}.{{.BaseHost}}"
+      PAPERLESS_ALLOWED_HOSTS: "{{.Subdomain}}.{{.BaseHost}},127.0.0.1"
       PAPERLESS_CORS_ALLOWED_HOSTS: {{.PublicURL}}
+      PAPERLESS_USE_X_FORWARD_HOST: "true"
+      PAPERLESS_USE_X_FORWARD_PORT: "true"
+      PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO","https"]'
       PAPERLESS_TIME_ZONE: UTC
       PAPERLESS_OCR_LANGUAGE: eng
       PAPERLESS_ADMIN_USER: admin
