@@ -12,7 +12,7 @@ scripts** with one process that:
 - Shows a portal dashboard with each app's tile, status, and link.
 
 Apps currently bundled in the binary: **Nextcloud**, **Jellyfin**, **Immich**,
-**Gitea**, **qBittorrent**, **Blinko**.
+**Gitea**, **qBittorrent**, **Blinko**, **Linkwarden**.
 
 ```
                          ┌──────────── nass ────────────┐
@@ -79,6 +79,7 @@ sudo nass app install immich
 sudo nass app install gitea
 sudo nass app install qbittorrent
 sudo nass app install blinko
+sudo nass app install linkwarden
 ```
 
 Now `https://nextcloud.example.com`, `https://jellyfin.example.com`, etc.
@@ -141,6 +142,7 @@ internal/
     nextcloud/        # one package per app
     gitea/
     jellyfin/
+    linkwarden/
     immich/
     qbittorrent/
   auth/

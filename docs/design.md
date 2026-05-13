@@ -123,6 +123,7 @@ import (
     _ "github.com/jdxin0/nass/internal/apps/gitea"
     _ "github.com/jdxin0/nass/internal/apps/immich"
     _ "github.com/jdxin0/nass/internal/apps/jellyfin"
+    _ "github.com/jdxin0/nass/internal/apps/linkwarden"
     _ "github.com/jdxin0/nass/internal/apps/nextcloud"
     _ "github.com/jdxin0/nass/internal/apps/qbittorrent"
     _ "github.com/jdxin0/nass/internal/apps/blinko"
@@ -173,7 +174,8 @@ The install pipeline (`internal/apps/install.go`) is fixed:
    where apps drive their first-boot setup: Nextcloud installs the `user_oidc`
    plugin, Jellyfin runs the startup wizard and sideloads the SSO plugin,
    Immich does admin signup, Gitea adds the nass OIDC source, Blinko seeds its
-   OAuth provider config, and qBittorrent patches `qBittorrent.conf` for proxy
+   OAuth provider config, Linkwarden is configured through environment
+   variables, and qBittorrent patches `qBittorrent.conf` for proxy
    compatibility.
 
 The pipeline is straight-line and not idempotent yet. Re-running
@@ -283,6 +285,20 @@ short contention doesn't blow up.
 - PostUp waits for Blinko's first boot, writes the `oauth2Providers` config row
   in Blinko's Postgres database with nass as a custom provider, then restarts
   the stack so Blinko reloads its OAuth strategies.
+
+### Linkwarden (`apps/linkwarden/`)
+
+- BackendPort `13001`, native OIDC via Linkwarden's Keycloak provider.
+- Redirect URI:
+  `https://linkwarden.<base_host>/api/v1/auth/callback/keycloak`.
+- Compose runs Linkwarden, Postgres, and Meilisearch. `NEXTAUTH_URL` includes
+  Linkwarden's required `/api/v1/auth` suffix; `BASE_URL` points at the public
+  app root.
+- OIDC is wired with `NEXT_PUBLIC_KEYCLOAK_ENABLED`, `KEYCLOAK_ISSUER`,
+  `KEYCLOAK_CLIENT_ID`, and `KEYCLOAK_CLIENT_SECRET`. Local credential login
+  and self-registration are disabled by default.
+- PostUp only waits for the web service because all first-boot configuration is
+  supplied through environment variables.
 
 ## Request flow examples
 

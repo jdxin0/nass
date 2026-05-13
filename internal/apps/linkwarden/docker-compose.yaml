@@ -1,0 +1,49 @@
+services:
+  linkwarden:
+    container_name: {{.Name}}
+    image: ghcr.io/linkwarden/linkwarden:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:{{.AdminPassword}}@postgres:5432/postgres
+      POSTGRES_PASSWORD: {{.AdminPassword}}
+      NEXTAUTH_URL: {{.PublicURL}}/api/v1/auth
+      NEXTAUTH_SECRET: {{.AdminPassword}}
+      BASE_URL: {{.PublicURL}}
+      STORAGE_FOLDER: /data/data
+      NEXT_PUBLIC_DISABLE_REGISTRATION: "true"
+      NEXT_PUBLIC_CREDENTIALS_ENABLED: "false"
+      NEXT_PUBLIC_KEYCLOAK_ENABLED: "true"
+      KEYCLOAK_CUSTOM_NAME: nass
+      KEYCLOAK_ISSUER: {{.OIDCIssuer}}
+      KEYCLOAK_CLIENT_ID: {{.OIDCClientID}}
+      KEYCLOAK_CLIENT_SECRET: {{.OIDCClientSecret}}
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: {{.AdminPassword}}
+    ports:
+      - "127.0.0.1:{{.BackendPort}}:3000"
+    volumes:
+      - {{.DataRoot}}/data:/data/data
+    depends_on:
+      - postgres
+      - meilisearch
+    extra_hosts:
+      - "auth.{{.BaseHost}}:host-gateway"
+      - "{{.BaseHost}}:host-gateway"
+
+  postgres:
+    container_name: {{.Name}}_postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: {{.AdminPassword}}
+    volumes:
+      - {{.DataRoot}}/postgres:/var/lib/postgresql/data
+
+  meilisearch:
+    container_name: {{.Name}}_meilisearch
+    image: getmeili/meilisearch:v1.12.8
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: {{.AdminPassword}}
+    volumes:
+      - {{.DataRoot}}/meili:/meili_data

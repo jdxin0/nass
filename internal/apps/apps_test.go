@@ -12,6 +12,7 @@ import (
 	_ "github.com/jdxin0/nass/internal/apps/gitea"
 	_ "github.com/jdxin0/nass/internal/apps/immich"
 	_ "github.com/jdxin0/nass/internal/apps/jellyfin"
+	_ "github.com/jdxin0/nass/internal/apps/linkwarden"
 	_ "github.com/jdxin0/nass/internal/apps/nextcloud"
 	_ "github.com/jdxin0/nass/internal/apps/qbittorrent"
 	"github.com/jdxin0/nass/internal/db"
@@ -268,6 +269,61 @@ func TestGiteaComposeRenders(t *testing.T) {
 		"GITEA__server__ROOT_URL: https://gitea.nass.local/",
 		"GITEA__oauth2_client__ENABLE_AUTO_REGISTRATION: \"true\"",
 		"GITEA__oauth2_client__USERNAME: preferred_username",
+		"auth.nass.local:host-gateway",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+}
+
+func TestLinkwardenComposeRenders(t *testing.T) {
+	s, ok := apps.Get("linkwarden")
+	if !ok {
+		t.Fatalf("linkwarden not registered")
+	}
+	if !s.NeedsOIDC {
+		t.Fatalf("linkwarden should need OIDC: %+v", s)
+	}
+	if s.OIDCGate {
+		t.Fatalf("linkwarden uses native OIDC, not the proxy gate: %+v", s)
+	}
+	ic := &apps.InstallContext{
+		Spec: &s, Name: s.Name, Subdomain: s.Subdomain, BaseHost: "nass.local",
+		PublicScheme: "https", BackendPort: s.BackendPort,
+		DataRoot:         "/srv/nass/data/linkwarden",
+		OIDCClientID:     "cid",
+		OIDCClientSecret: "sec",
+		OIDCIssuer:       "https://auth.nass.local",
+	}
+	if got := s.OIDCRedirectURIs(ic); len(got) != 1 || got[0] != "https://linkwarden.nass.local/api/v1/auth/callback/keycloak" {
+		t.Fatalf("redirect URIs: got %v", got)
+	}
+	dir := t.TempDir()
+	ic.ComposeFile = filepath.Join(dir, "compose.yaml")
+	if err := apps.RenderCompose(ic); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	body, _ := os.ReadFile(ic.ComposeFile)
+	for _, want := range []string{
+		"image: ghcr.io/linkwarden/linkwarden:",
+		"image: postgres:16-alpine",
+		"image: getmeili/meilisearch:",
+		"127.0.0.1:13001:3000",
+		"/srv/nass/data/linkwarden/data:/data/data",
+		"/srv/nass/data/linkwarden/postgres:/var/lib/postgresql/data",
+		"/srv/nass/data/linkwarden/meili:/meili_data",
+		"NEXTAUTH_URL: https://linkwarden.nass.local/api/v1/auth",
+		"BASE_URL: https://linkwarden.nass.local",
+		"DATABASE_URL: postgresql://postgres:",
+		"@postgres:5432/postgres",
+		"MEILI_HOST: http://meilisearch:7700",
+		"NEXT_PUBLIC_KEYCLOAK_ENABLED: \"true\"",
+		"KEYCLOAK_CUSTOM_NAME: nass",
+		"KEYCLOAK_ISSUER: https://auth.nass.local",
+		"KEYCLOAK_CLIENT_ID: cid",
+		"KEYCLOAK_CLIENT_SECRET: sec",
+		"NEXT_PUBLIC_CREDENTIALS_ENABLED: \"false\"",
 		"auth.nass.local:host-gateway",
 	} {
 		if !strings.Contains(string(body), want) {
