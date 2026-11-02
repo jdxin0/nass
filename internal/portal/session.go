@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/jdxin0/nass/internal/auth"
+	"github.com/jdxin0/nass/internal/proxy"
 )
 
 const (
-	cookieName     = "nass_session"
+	cookieName     = proxy.SessionCookieName
 	sessionTTL     = 7 * 24 * time.Hour
 	sessionTokenSz = 32
 )
@@ -47,7 +48,7 @@ func (s *SessionStore) Issue(ctx context.Context, w http.ResponseWriter, userID 
 	if err != nil {
 		return nil, err
 	}
-	expires := time.Now().Add(sessionTTL)
+	expires := time.Now().UTC().Add(sessionTTL) // UTC: see db.Open on timestamps
 	if _, err := s.db.ExecContext(ctx,
 		`INSERT INTO portal_sessions(id, user_id, expires_at) VALUES (?, ?, ?)`,
 		id, userID, expires); err != nil {
@@ -118,6 +119,15 @@ func (s *SessionStore) Revoke(ctx context.Context, w http.ResponseWriter, r *htt
 		Expires: time.Unix(0, 0),
 	})
 	return nil
+}
+
+// PurgeExpired deletes session rows that expired before cutoff. Lookup only
+// deletes an expired row when its cookie is presented again, so abandoned
+// sessions would otherwise accumulate forever.
+func (s *SessionStore) PurgeExpired(ctx context.Context, cutoff time.Time) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM portal_sessions WHERE expires_at < ?`, cutoff.UTC())
+	return err
 }
 
 func randomToken(n int) (string, error) {

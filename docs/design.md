@@ -53,7 +53,9 @@ fit together, and why the boundaries are where they are.
 2. **App routes** — `<subdomain>.<base_host>` for each enabled app, set up by
    `proxy.RouteManager` from the `apps` table on startup and re-synced every
    30 seconds. Re-syncing means a `nass app install` from another shell
-   shows up without restarting `serve`.
+   shows up without restarting `serve`. A misconfigured app (bad backend
+   URL, empty subdomain, a host already taken, or the reserved OIDC/portal
+   host) is skipped and logged; it never blocks the other routes or startup.
 3. **HTTP redirector** on `:80` — issues 301s to the HTTPS equivalent.
 
 The actual reverse-proxy is `httputil.ReverseProxy` with a custom `Rewrite`
@@ -73,7 +75,11 @@ The portal serves three things:
 - `/portal/login` — username/password form. On submit, verifies against the
   user store, creates a `portal_sessions` row, sets the `nass_session` cookie
   (HttpOnly, Secure, SameSite=Lax, **Domain scoped to `base_host`** so all
-  subdomains see it).
+  subdomains see it). The reverse proxy strips this cookie from every
+  upstream request, so app backends never see a portal session. After login
+  the user is sent to `next`, which may be a path on the portal or an
+  absolute URL on `base_host` or one of its subdomains; anything else falls
+  back to `/`. Failed logins are throttled per IP+username and per IP.
 - `/` — the dashboard. For each enabled app, queries `docker compose ps` to
   show running/stopped/unknown, renders a tile linking to its public URL.
   Authenticated users only.
@@ -88,6 +94,10 @@ trusting the proxy to enforce identity — but for a single-tenant home server
 it's the right ergonomic.
 
 Session state lives in SQLite, not memory, so restarts don't log everyone out.
+Changing a user's password, or removing their admin role, revokes all of
+their portal sessions and OIDC tokens. `nass serve` sweeps expired sessions,
+auth requests, codes and tokens hourly. Timestamps are stored in UTC (see
+`db.Open`).
 
 ### `auth/oidc/` — built-in OpenID Connect provider
 
@@ -196,7 +206,10 @@ exists). Fixing that is on the backlog.
 `nass app uninstall <name>` is the destructive cleanup path: it runs
 `docker compose down -v --remove-orphans`, removes any OIDC client and issued
 tokens for the app, deletes the `apps` row, removes the data folder unless
-`--keep-data` is set, and removes the generated compose file. Legacy path
+`--keep-data` is set, and removes the generated compose file. If
+`docker compose down` fails it aborts, unless forced (`--force`, and always
+from the portal): then the app is still removed from nass, but the data folder
+and compose file are kept, because containers may still be using them. Legacy path
 fallbacks are only used when the default generated compose file exists, so
 manual `app enable` routes do not cause guessed data paths to be deleted.
 

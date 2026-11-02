@@ -215,19 +215,33 @@ func (p *Portal) LoginURL(next string) string {
 	return p.portalURL() + "/portal/login?next=" + url.QueryEscape(next)
 }
 
-// safeNext returns next iff it parses as a relative URL on the same origin.
-func safeNext(raw string) string {
-	if raw == "" {
+// safeNext returns raw if it is a safe post-login destination, else "/".
+// Safe means either an absolute path on this host, or an absolute URL on the
+// base host or one of its subdomains: gated apps and the OIDC issuer live on
+// subdomains and send absolute `next` URLs so the user lands back where they
+// started.
+func (p *Portal) safeNext(raw string) string {
+	// Browsers treat '\' like '/', so "/\evil.com" would leave the site even
+	// though url.Parse sees a hostless path. Legitimate URLs percent-encode it.
+	if raw == "" || strings.Contains(raw, `\`) {
 		return "/"
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "/"
 	}
-	if u.Scheme != "" || u.Host != "" {
+	if u.Scheme == "" && u.Host == "" {
+		if !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(raw, "//") {
+			return "/"
+		}
+		return raw
+	}
+	if u.Scheme != "https" && (u.Scheme != "http" || p.HTTPS) {
 		return "/"
 	}
-	if !strings.HasPrefix(u.Path, "/") {
+	host := strings.ToLower(u.Hostname())
+	base := strings.ToLower(p.BaseHost)
+	if host == "" || (host != base && !strings.HasSuffix(host, "."+base)) {
 		return "/"
 	}
 	return raw

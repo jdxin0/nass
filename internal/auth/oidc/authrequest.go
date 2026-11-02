@@ -64,7 +64,7 @@ func insertAuthRequest(ctx context.Context, db *sql.DB, src *oidc.AuthRequest, u
 		codeChallenge = src.CodeChallenge
 		codeMethod = string(src.CodeChallengeMethod)
 	}
-	expires := time.Now().Add(authRequestTTL)
+	expires := time.Now().UTC().Add(authRequestTTL)
 
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO oidc_auth_requests

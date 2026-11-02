@@ -54,9 +54,10 @@ func serveCmd() *cobra.Command {
 			users := auth.NewStore(d)
 
 			// Shared brute-force throttle. 10 failed attempts per IP+username
-			// per minute is generous for typo'd passwords but tight enough that
-			// online credential stuffing tops out at ~600 guesses/hour/IP.
-			loginThrottle := auth.NewLoginThrottle(10, time.Minute)
+			// per minute is generous for typo'd passwords; the 30-per-IP cap
+			// across all usernames stops spraying one password over many
+			// accounts (~1800 guesses/hour/IP at most).
+			loginThrottle := auth.NewLoginThrottle(10, 30, time.Minute)
 
 			// Portal: sessions cookie scoped to base_host so all subdomains see it.
 			sessions := portal.NewSessionStore(d, users, cfg.Server.BaseHost)
@@ -107,8 +108,11 @@ func serveCmd() *cobra.Command {
 			// App routes are managed dynamically: portal admin can add/remove
 			// without restarting.
 			manager := proxy.NewRouteManager(d, router, cfg.Server.BaseHost, gate)
+			manager.Reserve(authHost(cfg), portalHost(cfg))
+			// Not fatal: a misconfigured app is skipped, and the portal and
+			// IdP must stay up so the operator can fix it.
 			if err := manager.Sync(ctx); err != nil {
-				return err
+				fmt.Fprintf(cmd.OutOrStderr(), "route sync: %v\n", err)
 			}
 			portalSrv.Reload = manager.Sync
 
@@ -118,12 +122,30 @@ func serveCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "route: %s → app\n", h)
 			}
 
+			// Expired sessions, auth requests, codes and tokens are never
+			// read again; sweep them so the DB doesn't grow forever.
+			purge := func() {
+				// The day of grace covers rows written before timestamps were
+				// stored in UTC: those carry the host's local offset (at most
+				// ±14h), and must not be deleted before they really expire.
+				cutoff := time.Now().Add(-24 * time.Hour)
+				if err := sessions.PurgeExpired(ctx, cutoff); err != nil {
+					fmt.Fprintf(cmd.OutOrStderr(), "purge sessions: %v\n", err)
+				}
+				if err := authSrv.Storage.PurgeExpired(ctx, cutoff); err != nil {
+					fmt.Fprintf(cmd.OutOrStderr(), "purge oidc: %v\n", err)
+				}
+			}
+			purge()
+
 			// Background sync so apps installed via `nass app install` from
 			// another process appear without restart. Cheap: one indexed query
 			// every 30s.
 			go func() {
 				t := time.NewTicker(30 * time.Second)
 				defer t.Stop()
+				p := time.NewTicker(time.Hour)
+				defer p.Stop()
 				for {
 					select {
 					case <-ctx.Done():
@@ -132,6 +154,8 @@ func serveCmd() *cobra.Command {
 						if err := manager.Sync(ctx); err != nil {
 							fmt.Fprintf(cmd.OutOrStderr(), "route sync: %v\n", err)
 						}
+					case <-p.C:
+						purge()
 					}
 				}
 			}()

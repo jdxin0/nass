@@ -210,7 +210,8 @@ func (p *Portal) postUpdateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Portal) postSetUserPassword(w http.ResponseWriter, r *http.Request) {
-	if _, ok := p.requireAdmin(w, r); !ok {
+	sess, ok := p.requireAdmin(w, r)
+	if !ok {
 		return
 	}
 	if !sameOrigin(r) {
@@ -228,6 +229,14 @@ func (p *Portal) postSetUserPassword(w http.ResponseWriter, r *http.Request) {
 	if err := p.Users.SetPassword(r.Context(), id, r.FormValue("password")); err != nil {
 		redirectAdmin(w, r, "", "set password failed: "+err.Error())
 		return
+	}
+	// SetPassword signs the user out everywhere. When admins change their
+	// own password, keep this browser signed in with a fresh session.
+	if id == sess.User.ID {
+		if _, err := p.Sessions.Issue(r.Context(), w, id); err != nil {
+			redirectAdmin(w, r, "", "password updated, but re-issuing your session failed: "+err.Error())
+			return
+		}
 	}
 	redirectAdmin(w, r, "updated password", "")
 }

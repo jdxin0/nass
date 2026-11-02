@@ -15,6 +15,13 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+// Open opens (creating if needed) the SQLite DB at path and applies pending
+// migrations.
+//
+// Timestamps: the driver stores a time.Time as text in the value's own zone,
+// and SQL compares that text with CURRENT_TIMESTAMP (UTC) as strings. Always
+// write times as UTC (time.Now().UTC()...) or those comparisons break on any
+// host whose local zone isn't UTC.
 func Open(path string) (*sql.DB, error) {
 	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", path)
 	d, err := sql.Open("sqlite", dsn)

@@ -181,7 +181,7 @@ Useful flags:
 | Flag | Meaning |
 | --- | --- |
 | `--keep-data` | Leave the app data folder on disk. |
-| `--force` | Continue DB/file cleanup even if `docker compose down` fails. |
+| `--force` | Remove the app from nass even if `docker compose down` fails. Its containers may still be running, so the data folder and compose file are left on disk; stop the containers, then delete them by hand. |
 | `--yes` | Required confirmation for destructive uninstall. |
 
 To only stop containers without removing nass state:

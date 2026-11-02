@@ -29,7 +29,7 @@ func (s *Storage) insertAccessToken(ctx context.Context, clientID, refreshID, su
 		return nil, fmt.Errorf("invalid subject %q", subject)
 	}
 	id := uuid.NewString()
-	expires := time.Now().Add(accessTokenTTL)
+	expires := time.Now().UTC().Add(accessTokenTTL)
 	audJSON, _ := json.Marshal(audience)
 	scopesJSON, _ := json.Marshal(scopes)
 	if _, err := s.db.ExecContext(ctx, `
@@ -106,15 +106,15 @@ func (s *Storage) insertRefreshToken(ctx context.Context, id, subject, clientID 
 		return fmt.Errorf("invalid subject %q", subject)
 	}
 	if authTime.IsZero() {
-		authTime = time.Now()
+		authTime = time.Now().UTC()
 	}
 	scopesJSON, _ := json.Marshal(scopes)
 	audJSON, _ := json.Marshal(audience)
-	expires := time.Now().Add(refreshTokenTTL)
+	expires := time.Now().UTC().Add(refreshTokenTTL)
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO oidc_refresh_tokens(id, user_id, client_id, scopes, audience, auth_time, expires_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, uid, clientID, string(scopesJSON), string(audJSON), authTime, expires)
+		id, uid, clientID, string(scopesJSON), string(audJSON), authTime.UTC(), expires)
 	_ = amr // amr is not persisted in phase 2; OP will recompute on subsequent requests
 	return err
 }
@@ -185,11 +185,11 @@ func (s *Storage) rotateRefreshToken(ctx context.Context, currentID, newID, acce
 		return err
 	}
 	scopesJSON, _ := json.Marshal(scopes)
-	newExpires := time.Now().Add(refreshTokenTTL)
+	newExpires := time.Now().UTC().Add(refreshTokenTTL)
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO oidc_refresh_tokens(id, user_id, client_id, scopes, audience, auth_time, expires_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID, uid, clientID, string(scopesJSON), audJSON, authTime, newExpires); err != nil {
+		newID, uid, clientID, string(scopesJSON), audJSON, authTime.UTC(), newExpires); err != nil {
 		return err
 	}
 	// Drop the old access token associated with the rotated refresh.

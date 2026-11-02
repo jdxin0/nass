@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -75,6 +76,9 @@ func (s *Store) Verify(ctx context.Context, username, password string) (*User, e
 	row := s.db.QueryRowContext(ctx, `SELECT password_hash FROM users WHERE username = ?`, username)
 	if err := row.Scan(&hash); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			// Spend the same bcrypt time as a real check so response timing
+			// doesn't reveal which usernames exist.
+			_ = bcrypt.CompareHashAndPassword(dummyHash(), []byte(password))
 			return nil, ErrUserNotFound
 		}
 		return nil, err
@@ -101,20 +105,37 @@ func (s *Store) SetEmail(ctx context.Context, id int64, email string) error {
 	return nil
 }
 
+// SetAdmin changes the user's admin flag. Demoting an admin also signs them
+// out everywhere (see revokeSessions), so apps that map roles at login pick up
+// the change.
 func (s *Store) SetAdmin(ctx context.Context, id int64, isAdmin bool) error {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET is_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		boolInt(isAdmin), id)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		return ErrUserNotFound
+	defer tx.Rollback()
+	var wasAdmin int
+	if err := tx.QueryRowContext(ctx, `SELECT is_admin FROM users WHERE id = ?`, id).Scan(&wasAdmin); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return err
 	}
-	return nil
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE users SET is_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		boolInt(isAdmin), id); err != nil {
+		return err
+	}
+	if wasAdmin != 0 && !isAdmin {
+		if err := revokeSessions(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
+// SetPassword replaces the user's password and signs them out everywhere,
+// so a reset actually locks out whoever had the old password.
 func (s *Store) SetPassword(ctx context.Context, id int64, password string) error {
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")
@@ -123,7 +144,12 @@ func (s *Store) SetPassword(ctx context.Context, id int64, password string) erro
 	if err != nil {
 		return err
 	}
-	res, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx,
 		`UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		string(hash), id)
 	if err != nil {
@@ -133,8 +159,34 @@ func (s *Store) SetPassword(ctx context.Context, id int64, password string) erro
 	if n == 0 {
 		return ErrUserNotFound
 	}
+	if err := revokeSessions(ctx, tx, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// revokeSessions deletes every portal session and OIDC token held by the
+// user. These tables belong to the portal and oidc packages, but they all
+// hang off users(id), so the user store is the one place that sees every
+// credential change.
+func revokeSessions(ctx context.Context, tx *sql.Tx, id int64) error {
+	for _, table := range []string{"portal_sessions", "oidc_access_tokens", "oidc_refresh_tokens"} {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM `+table+` WHERE user_id = ?`, id); err != nil {
+			return fmt.Errorf("revoke %s: %w", table, err)
+		}
+	}
 	return nil
 }
+
+// dummyHash is compared against when a username doesn't exist, so Verify
+// takes the same time either way.
+var dummyHash = sync.OnceValue(func() []byte {
+	h, err := bcrypt.GenerateFromPassword([]byte("nass-timing-equaliser"), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err)
+	}
+	return h
+})
 
 func (s *Store) Delete(ctx context.Context, id int64) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)

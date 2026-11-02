@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -57,6 +58,11 @@ func NewReverseProxy(opts BackendOptions) http.Handler {
 		FlushInterval: opts.FlushInterval,
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(opts.Backend)
+			// The portal session cookie is scoped to base_host, so browsers
+			// send it to every app. Backends must never see it: anyone who
+			// can read an app's traffic (a compromised container, its access
+			// logs) could replay an admin's session against the portal.
+			stripCookie(r.Out.Header, SessionCookieName)
 			if opts.PreserveHost {
 				r.Out.Host = r.In.Host
 			}
@@ -69,6 +75,38 @@ func NewReverseProxy(opts BackendOptions) http.Handler {
 		},
 	}
 	return rp
+}
+
+// SessionCookieName is the portal session cookie. It lives here (rather than
+// in portal) because the proxy must strip it from every upstream request.
+const SessionCookieName = "nass_session"
+
+// stripCookie removes the named cookie from every Cookie header in h, leaving
+// the other cookies byte-for-byte intact (re-serialising parsed cookies would
+// drop values that Go's parser considers invalid but apps rely on).
+func stripCookie(h http.Header, name string) {
+	values := h.Values("Cookie")
+	if len(values) == 0 {
+		return
+	}
+	kept := make([]string, 0, len(values))
+	for _, v := range values {
+		parts := strings.Split(v, ";")
+		out := parts[:0]
+		for _, p := range parts {
+			if n, _, _ := strings.Cut(strings.TrimSpace(p), "="); n == name {
+				continue
+			}
+			out = append(out, p)
+		}
+		if s := strings.TrimSpace(strings.Join(out, ";")); s != "" {
+			kept = append(kept, s)
+		}
+	}
+	h.Del("Cookie")
+	for _, v := range kept {
+		h.Add("Cookie", v)
+	}
 }
 
 // scheme returns the scheme nass terminated. We deliberately do NOT honour

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
@@ -149,6 +150,14 @@ func (ic *InstallContext) validate() error {
 	}
 	if ic.BaseHost == "" {
 		return fmt.Errorf("base_host required")
+	}
+	if ic.OIDCIssuer != "" {
+		// The proxy would refuse this route anyway (it's reserved), but fail
+		// before provisioning anything or starting containers.
+		appHost := ic.Subdomain + "." + ic.BaseHost
+		if u, err := url.Parse(ic.OIDCIssuer); err == nil && strings.EqualFold(u.Hostname(), appHost) {
+			return fmt.Errorf("subdomain %q is used by the nass sign-in server (%s); pass a different --subdomain", ic.Subdomain, ic.OIDCIssuer)
+		}
 	}
 	if ic.ComposeFile == "" {
 		return fmt.Errorf("compose_file required")

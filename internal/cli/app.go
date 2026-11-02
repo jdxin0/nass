@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/jdxin0/nass/internal/config"
@@ -77,7 +78,13 @@ func appEnableCmd() *cobra.Command {
 				OIDCGate:                 oidcGate,
 				ResponseHeaderTimeoutSec: respTimeout,
 			}
-			return withDB(func(c context.Context, d *sql.DB, _ *config.Config) error {
+			return withDB(func(c context.Context, d *sql.DB, cfg *config.Config) error {
+				host := strings.ToLower(subdomain + "." + cfg.Server.BaseHost)
+				for _, reserved := range []string{authHost(cfg), portalHost(cfg)} {
+					if host == strings.ToLower(reserved) {
+						return fmt.Errorf("subdomain %q is reserved: %s is served by nass itself", subdomain, reserved)
+					}
+				}
 				if err := proxy.SaveSettings(c, d, args[0], settings); err != nil {
 					return err
 				}

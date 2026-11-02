@@ -5,9 +5,9 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
-	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/zitadel/oidc/v3/pkg/op"
@@ -57,7 +57,7 @@ func (l *Login) SetThrottle(t *auth.LoginThrottle) { l.throttle = t }
 
 // Mount adds /login routes to mux.
 func (l *Login) Mount(mux *http.ServeMux) {
-	mux.HandleFunc("GET /login", l.get)
+	mux.Handle("GET /login", l.issuerInterceptor.HandlerFunc(l.get))
 	mux.Handle("POST /login", l.issuerInterceptor.HandlerFunc(l.post))
 }
 
@@ -88,7 +88,10 @@ func (l *Login) get(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Not logged in: bounce to portal login with `next` pointing back here.
-		next := "/login?authRequestID=" + url.QueryEscape(id)
+		// It must be absolute: the portal usually lives on a different host,
+		// and a relative /login there would 404.
+		next := strings.TrimSuffix(op.IssuerFromContext(r.Context()), "/") +
+			"/login?authRequestID=" + url.QueryEscape(id)
 		http.Redirect(w, r, l.portal.LoginURL(next), http.StatusFound)
 		return
 	}
@@ -113,9 +116,9 @@ func (l *Login) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := throttleKey(r, username)
-	if !l.throttle.Allow(key) {
-		wait := l.throttle.RetryAfter(key)
+	ip := auth.ClientIP(r)
+	if !l.throttle.Allow(ip, username) {
+		wait := l.throttle.RetryAfter(ip, username)
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", wait.Round(time.Second).Seconds()))
 		render(w, loginPage{AuthRequestID: id, Error: "too many attempts; try again later"})
 		return
@@ -123,11 +126,11 @@ func (l *Login) post(w http.ResponseWriter, r *http.Request) {
 
 	user, err := l.users.Verify(r.Context(), username, password)
 	if err != nil {
-		l.throttle.Failed(key)
+		l.throttle.Failed(ip, username)
 		render(w, loginPage{AuthRequestID: id, Error: "invalid username or password"})
 		return
 	}
-	l.throttle.Success(key)
+	l.throttle.Success(ip, username)
 	if err := markAuthRequestComplete(r.Context(), l.storage.db, id, user.ID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -152,14 +155,6 @@ func sameOrigin(r *http.Request) bool {
 		return false
 	}
 	return u.Host == r.Host
-}
-
-func throttleKey(r *http.Request, username string) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	return host + "|" + username
 }
 
 func render(w http.ResponseWriter, page loginPage) {

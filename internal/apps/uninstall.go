@@ -36,7 +36,10 @@ type UninstallContext struct {
 //  3. remove the data folder (unless KeepData)
 //  4. remove the compose file and its parent dir if empty
 //
-// docker-compose failures abort the operation unless Force is set.
+// docker-compose failures abort the operation unless Force is set. With
+// Force, the app is still removed from nass, but the data folder and compose
+// file are left on disk (containers may still be running and using them) and
+// an error says so.
 func Uninstall(ctx context.Context, uc *UninstallContext) error {
 	if uc == nil {
 		return fmt.Errorf("uninstall: nil context")
@@ -48,11 +51,13 @@ func Uninstall(ctx context.Context, uc *UninstallContext) error {
 		return fmt.Errorf("uninstall: db required")
 	}
 
+	var downErr error
 	if uc.ComposeFile != "" && uc.Orchestrator != nil {
-		if _, err := uc.Orchestrator.DownWithVolumes(ctx, uc.ComposeFile); err != nil {
-			if !uc.Force && !isMissingComposeFile(err) {
+		if _, err := uc.Orchestrator.DownWithVolumes(ctx, uc.ComposeFile); err != nil && !isMissingComposeFile(err) {
+			if !uc.Force {
 				return fmt.Errorf("compose down: %w", err)
 			}
+			downErr = err
 		}
 	}
 
@@ -66,6 +71,14 @@ func Uninstall(ctx context.Context, uc *UninstallContext) error {
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("app %q is not installed", uc.Name)
+	}
+
+	if downErr != nil {
+		// Deleting files under containers that may still be running would
+		// corrupt them, and without the compose file nobody could stop them.
+		return fmt.Errorf("app %q removed from nass, but its containers may still be running, "+
+			"so data %s and compose file %s were left in place; stop the containers, then delete them by hand: compose down: %w",
+			uc.Name, orNone(uc.DataRoot), orNone(uc.ComposeFile), downErr)
 	}
 
 	if !uc.KeepData && uc.DataRoot != "" {
@@ -82,6 +95,13 @@ func Uninstall(ctx context.Context, uc *UninstallContext) error {
 		_ = os.Remove(filepath.Dir(uc.ComposeFile))
 	}
 	return nil
+}
+
+func orNone(path string) string {
+	if path == "" {
+		return "(none)"
+	}
+	return path
 }
 
 // LoadAppPaths returns the saved compose file and data root for an app,

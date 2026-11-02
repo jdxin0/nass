@@ -67,7 +67,7 @@ func (s *Storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRe
 func (s *Storage) SaveAuthCode(ctx context.Context, id string, code string) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO oidc_auth_codes(code, request_id, expires_at)
-		VALUES (?, ?, ?)`, code, id, time.Now().Add(5*time.Minute))
+		VALUES (?, ?, ?)`, code, id, time.Now().UTC().Add(5*time.Minute))
 	return err
 }
 
@@ -270,6 +270,21 @@ func (s *Storage) ValidateJWTProfileScopes(ctx context.Context, userID string, s
 }
 
 func (s *Storage) Health(ctx context.Context) error { return s.db.PingContext(ctx) }
+
+// PurgeExpired deletes auth requests (and their codes, via cascade), codes,
+// and access/refresh tokens that expired before cutoff. Nothing else removes
+// them: a 5-minute access token per refresh adds up to an ever-growing table.
+func (s *Storage) PurgeExpired(ctx context.Context, cutoff time.Time) error {
+	for _, table := range []string{
+		"oidc_auth_requests", "oidc_auth_codes", "oidc_access_tokens", "oidc_refresh_tokens",
+	} {
+		if _, err := s.db.ExecContext(ctx,
+			`DELETE FROM `+table+` WHERE expires_at < ?`, cutoff.UTC()); err != nil {
+			return fmt.Errorf("purge %s: %w", table, err)
+		}
+	}
+	return nil
+}
 
 // --- helpers ---
 

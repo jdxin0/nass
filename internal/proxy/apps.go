@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -53,40 +55,56 @@ type AppRoute struct {
 
 // LoadEnabled reads enabled apps from the DB and resolves their proxy routes.
 // Apps with empty subdomain or backend are reported as errors so misconfig
-// is loud rather than silently dropped.
+// is loud rather than silently dropped; the routes of every valid app are
+// still returned alongside that error.
 func LoadEnabled(ctx context.Context, db *sql.DB, baseHost string) ([]AppRoute, error) {
-	rows, err := db.QueryContext(ctx,
-		`SELECT name, settings_json FROM apps WHERE enabled = 1 ORDER BY name`)
+	routes, problems, err := loadEnabled(ctx, db, baseHost)
 	if err != nil {
 		return nil, err
 	}
+	return routes, errors.Join(problems...)
+}
+
+// loadEnabled returns the valid enabled apps' routes, one problem per app
+// that was skipped, and a non-nil err only if the query itself failed.
+func loadEnabled(ctx context.Context, db *sql.DB, baseHost string) (routes []AppRoute, problems []error, err error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT name, settings_json FROM apps WHERE enabled = 1 ORDER BY name`)
+	if err != nil {
+		return nil, nil, err
+	}
 	defer rows.Close()
 
-	var out []AppRoute
 	for rows.Next() {
 		var name, settingsJSON string
 		if err := rows.Scan(&name, &settingsJSON); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		var s AppSettings
 		if settingsJSON != "" {
 			if err := json.Unmarshal([]byte(settingsJSON), &s); err != nil {
-				return nil, fmt.Errorf("app %s: decode settings: %w", name, err)
+				problems = append(problems, fmt.Errorf("app %s: decode settings: %w", name, err))
+				continue
 			}
 		}
 		if s.Subdomain == "" {
-			return nil, fmt.Errorf("app %s: subdomain empty (run `nass app enable %s --subdomain X --backend Y`)", name, name)
+			problems = append(problems, fmt.Errorf("app %s: subdomain empty (run `nass app enable %s --subdomain X --backend Y`)", name, name))
+			continue
 		}
 		if s.Backend == "" {
-			return nil, fmt.Errorf("app %s: backend empty", name)
+			problems = append(problems, fmt.Errorf("app %s: backend empty", name))
+			continue
 		}
-		out = append(out, AppRoute{
+		routes = append(routes, AppRoute{
 			Name:     name,
-			Host:     s.Subdomain + "." + baseHost,
+			Host:     strings.ToLower(s.Subdomain + "." + baseHost),
 			Settings: s,
 		})
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	return routes, problems, nil
 }
 
 // SaveSettings replaces the settings_json for an app and marks it enabled.
