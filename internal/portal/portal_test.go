@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -195,7 +196,7 @@ func TestAdminAddAppLogsBackgroundFailure(t *testing.T) {
 	f := newFixture(t)
 	jar, _ := cookiejar.New(nil)
 	hc := &http.Client{Jar: jar}
-	var logs bytes.Buffer
+	var logs syncBuffer
 	f.portal.JobLog = &logs
 	f.portal.InstallApp = func(ctx context.Context, ic *apps.InstallContext) (*apps.Result, error) {
 		return nil, errors.New("post-up: seed blinko oauth config: relation config does not exist")
@@ -362,6 +363,25 @@ func TestAdminUserManagement(t *testing.T) {
 	if _, err := f.users.GetByUsername(context.Background(), "bob"); !errors.Is(err, auth.ErrUserNotFound) {
 		t.Fatalf("bob should be deleted, got %v", err)
 	}
+}
+
+// syncBuffer is a bytes.Buffer that is safe for concurrent use. The portal's
+// background app jobs write to JobLog while tests poll its contents.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func waitFor(t *testing.T, ok func() bool) {
